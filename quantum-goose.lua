@@ -288,14 +288,26 @@ local DEFAULTS = {
 	FavoriteMinKG = 0,
 	PreferParasiteEggs = false, DragonEventSafe = false, ForestGuardBypass = false,
 	NightFarmSync = false,
+	StealSpeed = 300, StealBigEggs = false, StealBigEggScale = 1.5,
+	AutoStealAll = false, AutoReturn = true,
+	AutoPlaceSelected = false, AutoPlaceAll = false,
+	LifecycleRarities = { "All" }, LifecycleMutations = { "All" },
+	PrioritySlot1 = "Auto Steal Egg", PrioritySlot2 = "Auto Place Egg",
+	PrioritySlot3 = "Auto Hatch", PrioritySlot4 = "Auto Treadmill",
+	SellMaxScale = 10, SellKeepMutated = true, SellKeepEquipped = true,
+	AutoSellPets = false, SellInterval = 6,
+	AutoSellEggs = false, SellEggRarities = { "All" }, SellEggInterval = 8,
 	SelectRarity = { "All" }, SelectMutation = { "All" }, SelectArea = { "All" },
 	SelectEggType = { "All" }, SellMutationWhitelist = { "All" },
 	DisputeRarities = { "All" }, EspMutations = { "All" }, EspAreas = { "All" },
 	StealCooldown = 1,
 	-- progress
-	AutoClaimIndex = false, AutoClaimOffline = false,
+	AutoClaimIndex = false, AutoClaimOffline = false, AutoClaimGroupReward = false,
 	AutoTreadmill = false, AutoTreadmillUpgrade = false, AutoBaseUpgrade = false,
 	AutoEquipBest = false, AutoEquipTrail = false, AutoEquipBatBest = false, AutoBuyBest = false,
+	AutoEquipBestTrail = false, AutoEquipBestGear = false,
+	UpgradeTypes = { "Base", "Treadmill" },
+	AutoBuyTrail = false, TrailWanted = { "All" },
 	-- protection
 	AutoDisarmTraps = false, AutoEvasion = false, EvasionRadius = 35, EvasionCarryOnly = false,
 	EscapeHeight = 60, DodgeHeight = 60,
@@ -309,19 +321,26 @@ local DEFAULTS = {
 	EspMinRarity = "Common", EspMinKG = 0, EspMinEarnings = 0,
 	-- fusion
 	AutoFuse = false, FusionRarities = { "All" },
+	FuseTarget = "Highest Rarity", FuseKeepPerCategory = 0, FuseMaxScale = 10,
+	FuseKeepMutated = true, FuseKeepEquipped = true, FuseAutoReveal = true, FuseInterval = 8,
 	-- event
 	EventMonitor = false, AutoConsumeChest = false, EventExcludeRare = false,
 	-- server hop
 	AutoHopTarget = false, MaxHops = 10, HopMinKG = 0,
 	HopRarities = { "All" }, HopMutations = { "All" }, HopMutatedOnly = false,
+	AutoServerHop = false, HopMode = "No Matching Eggs", HopValue = 15,
 	-- webhook
 	WebhookURL = "", WebhookEnabled = false, WebhookRare = false, WebhookRareMin = "Epic",
 	WebhookPingRarities = { "All" },
 	WebhookChest = false, WebhookFuse = false, WebhookHop = false, WebhookDisconnect = false,
-	WebhookRolePing = "",
+	WebhookRolePing = "", WebhookPingId = "", WebhookEggSpawns = true, WebhookSummaryInterval = 15,
 	-- config
 	BlackScreen = false, FpsBoost = false, FpsCap = 0, OptimizationMethod = "Balanced",
-	AntiAfk = false, InfiniteJump = false,
+	AntiAfk = true, InfiniteJump = false,
+	AntiGameplayPause = true, AutoReconnect = false,
+	Fly = false, FlySpeed = 60, NoClip = false, WaypointTarget = "Base",
+	DisableRendering = false,
+	GuardEsp = false, PetEsp = false, PlayerEsp = false,
 	WalkSpeedEnabled = false, WalkSpeedValue = 30, LockLegalWalkSpeed = false,
 	JumpPowerEnabled = false, JumpPowerValue = 50,
 	Watchdog = false, StuckTimeout = 120, RejoinDelay = 180,
@@ -520,6 +539,25 @@ do
 			task.delay(1.5, Webhook.flush)
 		end
 	end
+	function Webhook.postRaw(payload)
+		if type(requestFn) ~= "function" or not HttpService then
+			return false
+		end
+		local url = getFlag("WebhookURL", "")
+		if typeof(url) ~= "string" or url == "" then
+			return false
+		end
+		local body = HttpService:JSONEncode(payload)
+		local ok2, res = pcall(function()
+			return requestFn({
+				Url = url,
+				Method = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body = body,
+			})
+		end)
+		return ok2 and res ~= nil
+	end
 	-- "Rarity: @mention" pairs from WebhookRolePing
 	local pingCache = {}
 	function Webhook.mentionForRarity(rarity)
@@ -616,6 +654,385 @@ local function clickGuiButtonByText(pattern)
 		end
 	end
 	return false
+end
+
+Webhook.session = {
+	started = os.clock(),
+	stolen = 0,
+	pets = 0,
+	rebirths = 0,
+	eggLog = {},
+	spawnLog = {},
+	spawnsSeen = {},
+	lastPetsSeen = nil,
+	lastRebirth = nil,
+}
+Webhook.lastSummary = 0
+
+local function fmtMoney(n)
+	n = tonumber(n) or 0
+	local suffixes = { "", "K", "M", "B", "T", "Qa", "Qi" }
+	local i = 1
+	while n >= 1000 and i < #suffixes do
+		n = n / 1000
+		i = i + 1
+	end
+	if i == 1 then
+		return string.format("%d", n)
+	end
+	return string.format("%.2f%s", n, suffixes[i])
+end
+Webhook.fmtMoney = fmtMoney
+
+function Webhook.eggLogEntry(rec)
+	if type(rec) ~= "table" then
+		return
+	end
+	if #Webhook.session.eggLog >= 100 then
+		return
+	end
+	local parts = {}
+	local rarity = GameAPI.resolveRarity(rec.AssetCategory)
+	table.insert(parts, string.format("**%s** `%s`", GameAPI.assetName(rec.AssetCategory), tostring(rarity or "?")))
+	if typeof(rec.AreaId) == "string" and rec.AreaId ~= "" then
+		table.insert(parts, rec.AreaId)
+	end
+	local muts = GameAPI.eggMutations(rec)
+	if #muts > 0 then
+		table.insert(parts, table.concat(muts, ", "))
+	end
+	local scale = tonumber(rec.AssetScale)
+	if scale then
+		table.insert(parts, string.format("x%.2f", scale))
+	end
+	table.insert(Webhook.session.eggLog, table.concat(parts, " | "))
+end
+
+function Webhook.trackEvents()
+	local save = GameAPI.saveData()
+	if not save then
+		return
+	end
+	local s = Webhook.session
+	if s.lastPetsSeen == nil then
+		s.lastPetsSeen = {}
+		local inv = save.Inventory
+		if type(inv) == "table" then
+			for uid in pairs(inv) do
+				s.lastPetsSeen[uid] = true
+			end
+		end
+		s.lastRebirth = tonumber(save.Rebirth) or 0
+		local records = GameAPI.areaEggSnapshot()
+		if type(records) == "table" then
+			for uid, rec in pairs(records) do
+				if type(rec) == "table" then
+					s.spawnsSeen[uid] = true
+				end
+			end
+		end
+		return
+	end
+	local inv = save.Inventory
+	if type(inv) == "table" then
+		for uid in pairs(inv) do
+			if not s.lastPetsSeen[uid] then
+				s.lastPetsSeen[uid] = true
+				s.pets = s.pets + 1
+			end
+		end
+		for uid in pairs(s.lastPetsSeen) do
+			if inv[uid] == nil then
+				s.lastPetsSeen[uid] = nil
+			end
+		end
+	end
+	local rebirth = tonumber(save.Rebirth) or 0
+	if rebirth > s.lastRebirth then
+		s.rebirths = s.rebirths + rebirth - s.lastRebirth
+	end
+	s.lastRebirth = rebirth
+	if getFlag("WebhookEggSpawns", true) == true then
+		local records = GameAPI.areaEggSnapshot()
+		if type(records) == "table" then
+			local current = {}
+			for uid, rec in pairs(records) do
+				if type(rec) == "table" then
+					current[uid] = true
+					if not s.spawnsSeen[uid] and #s.spawnLog < 60 then
+						s.spawnsSeen[uid] = true
+						local rarity = GameAPI.resolveRarity(rec.AssetCategory)
+						local rank = rarity and Farm.getRarityRank(rarity) or 0
+						table.insert(s.spawnLog, {
+							rank = rank,
+							text = string.format("**%s** `%s` in %s",
+								GameAPI.assetName(rec.AssetCategory),
+								tostring(rarity or "?"),
+								tostring(rec.AreaId or "?")),
+						})
+					end
+				end
+			end
+			for uid in pairs(s.spawnsSeen) do
+				if not current[uid] then
+					s.spawnsSeen[uid] = nil
+				end
+			end
+		end
+	end
+end
+
+function Webhook.buildSummaryEmbed()
+	local save = GameAPI.saveData() or {}
+	local s = Webhook.session
+	local elapsed = os.clock() - s.started
+	local fields = {}
+	local function addField(name, value)
+		table.insert(fields, { name = name, value = value, inline = true })
+	end
+	addField("Money", "`" .. fmtMoney(save.Money) .. "`")
+	addField("Speed Power", "`" .. fmtMoney(save.SpeedPower) .. "`")
+	if save.Rebirth ~= nil then
+		addField("Rebirth", "`" .. tostring(save.Rebirth) .. "`")
+	end
+	if save.BaseUpgradeLevel ~= nil then
+		addField("Base Level", "`" .. tostring(save.BaseUpgradeLevel) .. "`")
+	end
+	if save.TreadmillUpgradeLevel ~= nil then
+		addField("Treadmill Level", "`" .. tostring(save.TreadmillUpgradeLevel) .. "`")
+	end
+	local petCount = 0
+	if type(save.Inventory) == "table" then
+		for _ in pairs(save.Inventory) do
+			petCount = petCount + 1
+		end
+	end
+	addField("Pets Owned", "`" .. petCount .. "`")
+	table.insert(fields, {
+		name = "Since Last Summary",
+		value = string.format("**Eggs stolen:** %d\n**Pets obtained:** %d\n**Rebirths:** %d", s.stolen, s.pets, s.rebirths),
+	})
+	if #s.eggLog > 0 then
+		local shown = {}
+		local n = math.min(#s.eggLog, 15)
+		for i = 1, n do
+			table.insert(shown, s.eggLog[i])
+		end
+		local value = table.concat(shown, "\n")
+		if #s.eggLog > 15 then
+			value = value .. string.format("\n... and %d more", #s.eggLog - 15)
+		end
+		table.insert(fields, { name = string.format("Eggs Obtained (%d)", #s.eggLog), value = value })
+	end
+	if #s.spawnLog > 0 then
+		local sorted = {}
+		for i, e in ipairs(s.spawnLog) do
+			e.order = i
+			table.insert(sorted, e)
+		end
+		table.sort(sorted, function(a, b)
+			if a.rank == b.rank then
+				return a.order < b.order
+			end
+			return a.rank > b.rank
+		end)
+		local shown = {}
+		local n = math.min(#sorted, 15)
+		for i = 1, n do
+			table.insert(shown, sorted[i].text)
+		end
+		local value = table.concat(shown, "\n")
+		if #sorted > 15 then
+			value = value .. string.format("\n... and %d more", #sorted - 15)
+		end
+		table.insert(fields, { name = string.format("Eggs Spawned (%d)", #sorted), value = value })
+	end
+	return {
+		author = { name = "Steal an Egg Hub" },
+		title = "Session Summary",
+		description = string.format("**Player** `%s`\n**Server** `%s`\n**Runtime** `%s`",
+			client and client.Name or "?",
+			tostring(game.JobId),
+			fmtDuration(elapsed)),
+		color = 5793266,
+		fields = fields,
+		footer = { text = "Steal an Egg Hub" },
+		timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+	}
+end
+
+function Webhook.sendEmbed(embed, ping)
+	if getFlag("WebhookEnabled", false) ~= true then
+		return false
+	end
+	local payload = { username = "Steal an Egg Hub", embeds = { embed } }
+	if ping then
+		local raw = tostring(getFlag("WebhookPingId", "") or "")
+		local id = raw:gsub("%D", "")
+		if id ~= "" then
+			payload.content = "<@" .. id .. ">"
+		end
+	end
+	return Webhook.postRaw(payload)
+end
+
+function Webhook.sendSummary()
+	local ok = Webhook.sendEmbed(Webhook.buildSummaryEmbed(), true)
+	if ok then
+		local s = Webhook.session
+		s.stolen, s.pets, s.rebirths = 0, 0, 0
+		s.eggLog = {}
+		s.spawnLog = {}
+	end
+	return ok
+end
+
+function Webhook.summaryStep()
+	local mins = tonumber(getFlag("WebhookSummaryInterval", 15)) or 15
+	if os.clock() - Webhook.lastSummary < mins * 60 then
+		return
+	end
+	Webhook.lastSummary = os.clock()
+	task.spawn(Webhook.sendSummary)
+end
+
+function Webhook.webhookStep()
+	if getFlag("WebhookEnabled", false) ~= true then
+		return
+	end
+	pcall(Webhook.trackEvents)
+	pcall(Webhook.summaryStep)
+end
+
+local CoreTasks = {}
+CoreTasks.lastRun = {}
+CoreTasks.busy = false
+CoreTasks.registry = {}
+local CORE_TASK_NAMES = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" }
+
+function CoreTasks.register(name, def)
+	CoreTasks.registry[name] = def
+end
+
+function CoreTasks.order()
+	local order, seen = {}, {}
+	for i = 1, 4 do
+		local pick = getFlag("PrioritySlot" .. i, nil)
+		if typeof(pick) == "string" and pick ~= "" and not seen[pick] then
+			table.insert(order, pick)
+			seen[pick] = true
+		end
+	end
+	for _, name in ipairs(CORE_TASK_NAMES) do
+		if not seen[name] then
+			table.insert(order, name)
+			seen[name] = true
+		end
+	end
+	return order
+end
+
+function CoreTasks.pump()
+	if CoreTasks.busy then
+		return
+	end
+	World.pollCarry()
+	if Progress.treadmillActive == true and GameAPI.doubleSpeedVisible() ~= true then
+		CoreTasks.busy = true
+		pcall(Progress.stopTreadmillTraining)
+		CoreTasks.busy = false
+	end
+	for _, name in ipairs(CoreTasks.order()) do
+		local def = CoreTasks.registry[name]
+		if def then
+			local last = CoreTasks.lastRun[name] or 0
+			if os.clock() - last >= def.interval then
+				local okReady, ready = pcall(def.ready)
+				if okReady and ready == true then
+					CoreTasks.busy = true
+					local okRun = pcall(def.run)
+					CoreTasks.busy = false
+					if okRun and name ~= "Auto Treadmill" then
+						CoreTasks.lastRun[name] = os.clock()
+					end
+					return
+				end
+			end
+		end
+	end
+end
+
+local Stability = {}
+Stability.checkAt = 0
+Stability.handling = false
+
+function Stability.handleDisconnect(reason)
+	if Stability.handling then
+		return
+	end
+	Stability.handling = true
+	if getFlag("WebhookDisconnect", false) == true then
+		Webhook.sendEmbed({
+			author = { name = "Steal an Egg Hub" },
+			title = "Disconnected",
+			description = string.format("**Player** `%s`\n**Reason** %s",
+				client and client.Name or "?",
+				tostring(reason or "Connection lost")),
+			color = 15158332,
+			footer = { text = "Steal an Egg Hub" },
+			timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+		}, true)
+	end
+	if getFlag("AutoReconnect", false) == true then
+		task.delay(2, function()
+			GameAPI.rejoinServer()
+		end)
+	end
+	task.delay(15, function()
+		Stability.handling = false
+	end)
+end
+
+function Stability.pump()
+	local now = os.clock()
+	if now - Stability.checkAt < 1 then
+		return
+	end
+	Stability.checkAt = now
+	if getFlag("AutoReconnect", false) ~= true and getFlag("WebhookDisconnect", false) ~= true then
+		return
+	end
+	local prompt = CoreGui and CoreGui:FindFirstChild("RobloxPromptGui")
+	local overlay = prompt and prompt:FindFirstChild("promptOverlay")
+	if typeof(overlay) == "Instance" then
+		for _, child in ipairs(overlay:GetChildren()) do
+			if child.Name:find("ErrorPrompt") and child.Visible == true then
+				Stability.handleDisconnect("Roblox error prompt")
+				break
+			end
+		end
+	end
+end
+
+local lastAfkTap = 0
+function ConfigMod.antiAfkTap()
+	local VirtualInputManager = svc("VirtualInputManager")
+	local cam = Workspace.CurrentCamera
+	local cf = cam and cam.CFrame or CFrame.new()
+	if VirtualInputManager then
+		pcall(function()
+			VirtualInputManager:Button2Down(Vector2.new(0, 0), cf)
+			task.wait(0.1)
+			VirtualInputManager:Button2Up(Vector2.new(0, 0), cf)
+		end)
+	elseif VirtualUser then
+		pcall(function()
+			VirtualUser:Button2Down(Vector2.new(0, 0), cf)
+			task.wait(0.1)
+			VirtualUser:Button2Up(Vector2.new(0, 0), cf)
+		end)
+	end
+	lastAfkTap = tick()
 end
 
 
@@ -1446,6 +1863,908 @@ local function collectPets()
 end
 World.collectPets = collectPets
 
+local function localRoot()
+	local char = client and client.Character
+	if typeof(char) ~= "Instance" then
+		return nil
+	end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	return typeof(hrp) == "Instance" and hrp or nil
+end
+
+local function areasFolder()
+	local objects = Workspace and Workspace:FindFirstChild("__OBJECTS")
+	if typeof(objects) ~= "Instance" then
+		return nil
+	end
+	local areas = objects:FindFirstChild("Areas")
+	return typeof(areas) == "Instance" and areas or nil
+end
+
+function GameAPI.initV2()
+	local M = GameAPI.Modules
+	if not M.TreadmillData then
+		M.TreadmillData = safeRequire(findReplicatedPath({ "Data", "Treadmills" }))
+	end
+	if not M.TrailsData then
+		M.TrailsData = safeRequire(findReplicatedPath({ "Data", "Trails" }))
+	end
+	if not M.GearsData then
+		M.GearsData = safeRequire(findReplicatedPath({ "Data", "Gears" }))
+	end
+	if not M.AssetsData then
+		M.AssetsData = safeRequire(findReplicatedPath({ "Data", "Assets" }))
+	end
+	if not M.EggsTypes then
+		M.EggsTypes = safeRequire(findReplicatedPath({ "Shared", "Types", "Eggs" }))
+	end
+	if not M.Constants then
+		M.Constants = safeRequire(findReplicatedPath({ "Shared", "Globals", "Constants" }))
+	end
+	if not M.AssetItems then
+		M.AssetItems = safeRequire(findReplicatedPath({ "Shared", "Util", "AssetItems" }))
+	end
+	if not M.FuseKernel then
+		M.FuseKernel = safeRequire(findReplicatedPath({ "Shared", "Util", "FuseKernel" }))
+	end
+	if not M.AssetRoster then
+		M.AssetRoster = safeRequire(findReplicatedPath({ "Client", "AssetRoster" }))
+	end
+end
+
+function GameAPI.resolveRarity(assetId)
+	if typeof(assetId) ~= "string" or assetId == "" then
+		return nil
+	end
+	local roster = GameAPI.Modules.AssetRoster
+	local dir = type(roster) == "table" and roster.Directory
+	if type(dir) == "table" and type(dir[assetId]) == "table" then
+		local rec = dir[assetId]
+		local r = rec.Rarity
+		if type(r) == "table" then
+			return r._id or r.DisplayName
+		end
+		if typeof(r) == "string" then
+			return r
+		end
+	end
+	return nil
+end
+
+function GameAPI.assetName(assetId)
+	if typeof(assetId) ~= "string" or assetId == "" then
+		return "Unknown"
+	end
+	local roster = GameAPI.Modules.AssetRoster
+	local dir = type(roster) == "table" and roster.Directory
+	if type(dir) == "table" and type(dir[assetId]) == "table" then
+		return dir[assetId].DisplayName or assetId
+	end
+	return assetId
+end
+
+function GameAPI.areaEggSnapshot()
+	local mod = GameAPI.Modules.EggState
+	if type(mod) == "table" and type(mod.GetAreaEggSnapshot) == "function" then
+		local ok, snap = pcall(mod.GetAreaEggSnapshot, mod)
+		if ok and type(snap) == "table" then
+			if type(snap.Records) == "table" then
+				return snap.Records
+			end
+			return snap
+		end
+	end
+	return nil
+end
+
+function GameAPI.requestSnapshot()
+	local mod = GameAPI.Modules.EggState
+	if type(mod) == "table" and type(mod.RequestAreaEggSnapshot) == "function" then
+		return pcall(mod.RequestAreaEggSnapshot, mod)
+	end
+	return false
+end
+
+function GameAPI.dropHeldEgg()
+	local mod = GameAPI.Modules.EggState
+	if type(mod) == "table" then
+		if type(mod.RequestDropHeldAreaEgg) == "function" then
+			local ok = pcall(mod.RequestDropHeldAreaEgg, mod)
+			if ok then
+				return true
+			end
+		end
+		if type(mod.DropFieldEgg) == "function" then
+			local ok = pcall(mod.DropFieldEgg, mod, "PlayerRequest")
+			if ok then
+				return true
+			end
+		end
+	end
+	return GameAPI.dropEgg()
+end
+
+function GameAPI.doubleSpeedVisible()
+	local gui = client and client:FindFirstChild("PlayerGui")
+	if typeof(gui) ~= "Instance" then
+		return false
+	end
+	local paths = {
+		{ "Elements", "Tools", "DoubleYourSpeed" },
+		{ "Left", "Tools", "DoubleYourSpeed" },
+	}
+	for _, parts in ipairs(paths) do
+		local node = gui
+		for _, name in ipairs(parts) do
+			node = typeof(node) == "Instance" and node:FindFirstChild(name) or nil
+		end
+		if typeof(node) == "Instance" and node.Visible == true then
+			return true
+		end
+	end
+	return false
+end
+
+function GameAPI.maxEggInventory()
+	local t = GameAPI.Modules.EggsTypes
+	if type(t) == "table" and type(t.MAX_INVENTORY) == "number" then
+		return t.MAX_INVENTORY
+	end
+	return math.huge
+end
+
+function GameAPI.eggInventoryCount()
+	local save = GameAPI.saveData()
+	local inv = save and save.EggInventory
+	if type(inv) ~= "table" then
+		return 0
+	end
+	local n = 0
+	for _ in pairs(inv) do
+		n = n + 1
+	end
+	return n
+end
+
+function GameAPI.eggInventoryFull()
+	return GameAPI.eggInventoryCount() >= GameAPI.maxEggInventory()
+end
+
+function GameAPI.eggMutations(rec)
+	local out = {}
+	if type(rec) ~= "table" then
+		return out
+	end
+	if type(rec.Mutations) == "table" then
+		for _, m in pairs(rec.Mutations) do
+			if typeof(m) == "string" and m ~= "" then
+				table.insert(out, m)
+			end
+		end
+	end
+	if typeof(rec.BaseMutation) == "string" and rec.BaseMutation ~= "" then
+		table.insert(out, rec.BaseMutation)
+	end
+	return out
+end
+
+function GameAPI.eggMatchesFilters(rec, zoneSet, raritySet, mutSet)
+	if type(rec) ~= "table" then
+		return false
+	end
+	if zoneSet then
+		local area = rec.AreaId
+		if typeof(area) ~= "string" or not zoneSet[area] then
+			return false
+		end
+	end
+	if raritySet and next(raritySet) ~= nil then
+		local rarity = GameAPI.resolveRarity(rec.AssetCategory)
+		if typeof(rarity) == "string" and not raritySet[rarity] then
+			return false
+		end
+	end
+	if mutSet and next(mutSet) ~= nil then
+		local hit = false
+		for _, m in ipairs(GameAPI.eggMutations(rec)) do
+			if mutSet[m] then
+				hit = true
+				break
+			end
+		end
+		if not hit then
+			return false
+		end
+	end
+	return true
+end
+
+function GameAPI.unplacedEggUids(raritySet, mutSet)
+	local save = GameAPI.saveData()
+	local inv = save and save.EggInventory
+	if type(inv) ~= "table" then
+		return {}
+	end
+	local out = {}
+	for uid, rec in pairs(inv) do
+		if typeof(uid) == "string" and type(rec) == "table" and rec.Placement == nil then
+			if GameAPI.eggMatchesFilters(rec, nil, raritySet, mutSet) then
+				table.insert(out, uid)
+			end
+		end
+	end
+	return out
+end
+
+function GameAPI.sellableEggUids(raritySet)
+	local save = GameAPI.saveData()
+	local inv = save and save.EggInventory
+	if type(inv) ~= "table" then
+		return {}
+	end
+	local out = {}
+	for uid, rec in pairs(inv) do
+		if typeof(uid) == "string" and type(rec) == "table" and rec.Placement == nil then
+			if GameAPI.eggMatchesFilters(rec, nil, raritySet, nil) then
+				table.insert(out, uid)
+			end
+		end
+	end
+	return out
+end
+
+function GameAPI.sellAsset(uid)
+	if typeof(uid) ~= "string" or uid == "" then
+		return false
+	end
+	if not GameAPI.fire("AssetInventory", "SELL_ASSET", uid) then
+		return false
+	end
+	local deadline = os.clock() + 2
+	while os.clock() < deadline do
+		local save = GameAPI.saveData()
+		if save then
+			local inPets = save.Inventory and save.Inventory[uid] ~= nil
+			local inEggs = save.EggInventory and save.EggInventory[uid] ~= nil
+			if not inPets and not inEggs then
+				return true
+			end
+		end
+		task.wait(0.1)
+	end
+	return false
+end
+
+function GameAPI.petInfo(uid)
+	local save = GameAPI.saveData()
+	if not save then
+		return nil, nil
+	end
+	local rec = save.Inventory and save.Inventory[uid]
+	if type(rec) ~= "table" then
+		return nil, nil
+	end
+	local data = rec
+	local mod = GameAPI.Modules.AssetItems
+	if type(mod) == "table" and type(mod.Deserialize) == "function" then
+		local ok, dec = pcall(mod.Deserialize, mod, rec)
+		if ok and type(dec) == "table" then
+			data = dec
+		end
+	end
+	return data, rec
+end
+
+function GameAPI.equippedUids()
+	local save = GameAPI.saveData()
+	local set = {}
+	local list = save and save.EquippedAssets
+	if type(list) == "table" then
+		for _, uid in pairs(list) do
+			if typeof(uid) == "string" then
+				set[uid] = true
+			end
+		end
+	end
+	return set
+end
+
+function GameAPI.sellablePets(opts)
+	opts = opts or {}
+	local save = GameAPI.saveData()
+	if not save then
+		return {}
+	end
+	local inv = save.Inventory
+	if type(inv) ~= "table" then
+		return {}
+	end
+	local equipped = GameAPI.equippedUids()
+	local out = {}
+	for uid, rec in pairs(inv) do
+		if typeof(uid) == "string" and type(rec) == "table" then
+			local data = rec
+			local mod = GameAPI.Modules.AssetItems
+			if type(mod) == "table" and type(mod.Deserialize) == "function" then
+				local ok, dec = pcall(mod.Deserialize, mod, rec)
+				if ok and type(dec) == "table" then
+					data = dec
+				end
+			end
+			local skip = data.IsFavorite == true or data.InFuse == true
+			if not skip then
+				local scale = tonumber(data.Scale) or tonumber(rec.Scale)
+				if opts.maxScale and scale and scale > opts.maxScale then
+					skip = true
+				end
+			end
+			if not skip and opts.keepEquipped and equipped[uid] then
+				skip = true
+			end
+			if not skip and opts.raritySet and next(opts.raritySet) ~= nil then
+				local category = rec.Category or rec.AssetCategory
+				local rarity = GameAPI.resolveRarity(category)
+				if typeof(rarity) == "string" and not opts.raritySet[rarity] then
+					skip = true
+				end
+			end
+			if not skip and opts.keepMutated and opts.mutSet and next(opts.mutSet) ~= nil then
+				for _, m in ipairs(GameAPI.eggMutations(data)) do
+					if opts.mutSet[m] then
+						skip = true
+						break
+					end
+				end
+			end
+			if not skip then
+				table.insert(out, uid)
+			end
+		end
+	end
+	return out
+end
+
+
+function GameAPI.fuseGroups()
+	local save = GameAPI.saveData()
+	if not save then
+		return {}
+	end
+	local inv = save.Inventory
+	if type(inv) ~= "table" then
+		return {}
+	end
+	local groups = {}
+	for uid, rec in pairs(inv) do
+		if typeof(uid) == "string" and type(rec) == "table" then
+			local category = rec.Category or rec.AssetCategory or rec.Type or "Unknown"
+			local rarity = GameAPI.resolveRarity(rec.Category) or "Common"
+			local scale = tonumber(rec.Scale) or 0
+			if not groups[category] then
+				groups[category] = { category = category, rarity = rarity, items = {} }
+			end
+			table.insert(groups[category].items, { uid = uid, scale = scale })
+		end
+	end
+	for _, g in pairs(groups) do
+		table.sort(g.items, function(a, b)
+			return a.scale < b.scale
+		end)
+	end
+	return groups
+end
+
+function GameAPI.fusePrice(uids)
+	local mod = GameAPI.Modules.FuseKernel
+	if type(mod) ~= "table" or type(mod.CalculateFusePrice) ~= "function" then
+		return nil
+	end
+	local save = GameAPI.saveData()
+	local inv = save and save.Inventory
+	if type(inv) ~= "table" then
+		return nil
+	end
+	local payload = {}
+	for _, uid in ipairs(uids) do
+		local rec = inv[uid]
+		if type(rec) == "table" then
+			local data = rec
+			local items = GameAPI.Modules.AssetItems
+			if type(items) == "table" and type(items.Deserialize) == "function" then
+				local ok, dec = pcall(items.Deserialize, items, rec)
+				if ok and type(dec) == "table" then
+					data = dec
+				end
+			end
+			payload[uid] = data
+		end
+	end
+	local ok, price = pcall(mod.CalculateFusePrice, mod, payload)
+	if ok and type(price) == "number" then
+		return price
+	end
+	return nil
+end
+
+function GameAPI.equipBestPets()
+	if GameAPI.fire("Backpack", "EQUIP_BEST") then
+		return true
+	end
+	return GameAPI.wearBestPet()
+end
+
+function GameAPI.claimIndexAll()
+	if GameAPI.fire("Index", "REQUEST_CLAIM_ALL") then
+		return true
+	end
+	return GameAPI.claimCodex()
+end
+
+function GameAPI.offlineSummary()
+	local ok, res = GameAPI.invoke("OfflineAssets", "GET_SUMMARY")
+	if ok and type(res) == "table" then
+		return res
+	end
+	return nil
+end
+
+function GameAPI.claimOfflineEarnings()
+	local summary = GameAPI.offlineSummary()
+	if type(summary) == "table" then
+		local amount = tonumber(summary.ClaimableAmount) or 0
+		if amount <= 0 then
+			return false
+		end
+		return GameAPI.fire("OfflineAssets", "REQUEST_REDEEM")
+	end
+	return GameAPI.collectAway()
+end
+
+function GameAPI.baseUpgradeNext()
+	local mod = GameAPI.Modules.BaseUpgrade
+	local save = GameAPI.saveData()
+	if type(mod) == "table" and type(mod.IsNextTierAffordable) == "function" then
+		local ok, affordable = pcall(mod.IsNextTierAffordable, mod, save)
+		if ok then
+			return affordable == true
+		end
+	end
+	return false
+end
+
+function GameAPI.buyBaseUpgrade()
+	if GameAPI.fire("Plots", "REQUEST_BASE_UPGRADE") then
+		return true
+	end
+	return GameAPI.baseUpgrade()
+end
+
+function GameAPI.nextTreadmillLevel()
+	local mod = GameAPI.Modules.TreadmillData
+	if type(mod) == "table" and type(mod.GetByUpgradeLevel) == "function" then
+		local save = GameAPI.saveData()
+		local current = save and (tonumber(save.TreadmillUpgradeLevel) or 0) or 0
+		local ok, nextLevel = pcall(mod.GetByUpgradeLevel, mod, current + 1)
+		if ok and type(nextLevel) == "table" then
+			return nextLevel
+		end
+	end
+	return nil
+end
+
+function GameAPI.buyTreadmillUpgrade()
+	local nextLevel = GameAPI.nextTreadmillLevel()
+	if nextLevel then
+		local id = nextLevel._id or nextLevel.Id or nextLevel.ID
+		local save = GameAPI.saveData()
+		local money = save and tonumber(save.Money) or 0
+		local price = tonumber(nextLevel.Price) or 0
+		if money >= price and GameAPI.fire("Treadmills", "REQUEST_UPGRADE", id) then
+			return true
+		end
+	end
+	local tid = World.treadmillId()
+	if tid then
+		return GameAPI.treadmillTierRaise(tid)
+	end
+	return false
+end
+
+function GameAPI.treadmillEquipStatic()
+	local ok = GameAPI.invoke("Treadmills", "REQUEST_EQUIP_STATIC")
+	if ok then
+		return true
+	end
+	ok = GameAPI.fire("Treadmills", "REQUEST_EQUIP_STATIC")
+	if ok then
+		return true
+	end
+	return GameAPI.treadmillWear()
+end
+
+function GameAPI.treadmillUnequip()
+	local ok = GameAPI.invoke("Treadmills", "REQUEST_UNEQUIP")
+	if not ok then
+		ok = GameAPI.fire("Treadmills", "REQUEST_UNEQUIP")
+	end
+	if not ok then
+		ok = GameAPI.treadmillDoff()
+	end
+	return ok
+end
+
+function GameAPI.trailData()
+	local mod = GameAPI.Modules.TrailsData
+	local names = {}
+	local prices = {}
+	if type(mod) == "table" then
+		for k, v in pairs(mod) do
+			if typeof(k) == "string" and not k:match("^_") and type(v) ~= "function" then
+				if type(v) == "table" then
+					local price = tonumber(v.Price or v.price or v.Cost or v.cost)
+					if price then
+						names[k] = true
+						prices[k] = price
+					end
+				elseif type(v) == "number" then
+					names[k] = true
+					prices[k] = v
+				end
+			end
+		end
+	end
+	return names, prices
+end
+
+function GameAPI.buyTrail(name)
+	return GameAPI.fire("Trails", "REQUEST_PURCHASE", name)
+end
+
+function GameAPI.wornTrail()
+	local ok, res = GameAPI.invoke("Trails", "WORN_SNAPSHOT")
+	if ok and type(res) == "table" then
+		return res[client and client.UserId]
+	end
+	return nil
+end
+
+function GameAPI.selectTrail(name)
+	local ok = GameAPI.invoke("Trails", "REQUEST_SELECT", name)
+	if ok then
+		return true
+	end
+	return GameAPI.fire("Trails", "REQUEST_SELECT", name)
+end
+
+function GameAPI.bestTrailName()
+	local names, prices = GameAPI.trailData()
+	local save = GameAPI.saveData()
+	local inv = save and save.TrailInventory
+	if type(inv) ~= "table" then
+		return nil
+	end
+	local best, bestScore = nil, -1
+	for name in pairs(names) do
+		if inv[name] ~= nil and prices[name] and prices[name] > bestScore then
+			best, bestScore = name, prices[name]
+		end
+	end
+	return best
+end
+
+function GameAPI.fetchServerPage(cursor)
+	local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers?limit=50"
+	if typeof(cursor) == "string" and cursor ~= "" then
+		url = url .. "&cursor=" .. cursor
+	end
+	local ok, body = pcall(function()
+		return HttpService:GetAsync(url, false)
+	end)
+	if not ok or typeof(body) ~= "string" then
+		return nil
+	end
+	local ok2, data = pcall(HttpService.JSONDecode, HttpService, body)
+	if ok2 and type(data) == "table" and type(data.data) == "table" then
+		return { data = data.data, nextPageCursor = data.nextPageCursor }
+	end
+	return nil
+end
+
+function GameAPI.pickServerTargets(visited)
+	local out = {}
+	local pageCursor, pages = nil, 0
+	repeat
+		local page = GameAPI.fetchServerPage(pageCursor)
+		if not page then
+			break
+		end
+		for _, entry in ipairs(page.data) do
+			if type(entry) == "table" and typeof(entry.id) == "string" then
+				if entry.id ~= game.JobId and not visited[entry.id] then
+					table.insert(out, { id = entry.id, playing = tonumber(entry.playing) or 0 })
+				end
+			end
+		end
+		pageCursor = typeof(page.nextPageCursor) == "string" and page.nextPageCursor or nil
+		pages = pages + 1
+		if #out >= 40 or pages >= 4 then
+			break
+		end
+		if pageCursor then
+			task.wait(0.25)
+		end
+	until not pageCursor
+	table.sort(out, function(a, b)
+		return a.playing < b.playing
+	end)
+	return out
+end
+
+function GameAPI.teleportToJob(jobId)
+	local ok = pcall(function()
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, client)
+	end)
+	return ok
+end
+
+function GameAPI.rejoinServer()
+	local ok = pcall(function()
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, client)
+	end)
+	if not ok then
+		pcall(function()
+			TeleportService:Teleport(game.PlaceId, client)
+		end)
+	end
+end
+
+World.laneY = function()
+	local areas = areasFolder()
+	local part = areas and areas:FindFirstChild("GameplayZ")
+	if typeof(part) == "Instance" and part:IsA("BasePart") then
+		return part.Position.Y + 3
+	end
+	local root = localRoot()
+	if root then
+		return root.Position.Y
+	end
+	return 70
+end
+
+World.laneZ = function()
+	local areas = areasFolder()
+	local part = areas and areas:FindFirstChild("GameplayZ")
+	if typeof(part) == "Instance" and part:IsA("BasePart") then
+		return part.Position.Z
+	end
+	part = areas and areas:FindFirstChild("SeparationLine")
+	if typeof(part) == "Instance" and part:IsA("BasePart") then
+		return part.Position.Z
+	end
+	return -365.5
+end
+
+World.entryPosition = function()
+	local x = 543.5
+	local areas = areasFolder()
+	local cand = areas and areas:FindFirstChild("StartArea")
+	if not (typeof(cand) == "Instance" and cand:IsA("BasePart")) then
+		cand = areas and areas:FindFirstChild("SeparationLine")
+	end
+	if typeof(cand) == "Instance" and cand:IsA("BasePart") then
+		x = cand.Position.X
+	end
+	return Vector3.new(x, World.laneY(), World.laneZ())
+end
+
+World.zoneModel = function(name)
+	local areas = areasFolder()
+	local guard = areas and areas:FindFirstChild("GuardAreas")
+	if typeof(guard) == "Instance" then
+		local m = guard:FindFirstChild(name)
+		return typeof(m) == "Instance" and m or nil
+	end
+	return nil
+end
+
+World.zoneBounds = function(name)
+	local m = World.zoneModel(name)
+	if not m then
+		return nil
+	end
+	local part = m:FindFirstChild("Bounds")
+	if typeof(part) == "Instance" and part:IsA("BasePart") then
+		return part.Position, part.Size
+	end
+	if m:IsA("BasePart") then
+		return m.Position, m.Size
+	end
+	return nil
+end
+
+World.zoneCenter = function(name)
+	local pos = World.zoneBounds(name)
+	return pos
+end
+
+World.zoneIndexByX = function(x)
+	local best, bestDist = 1, math.huge
+	for i, name in ipairs(AREA_NAMES) do
+		local pos = World.zoneCenter(name)
+		if pos then
+			local d = math.abs(pos.X - x)
+			if d < bestDist then
+				bestDist = d
+				best = i
+			end
+		end
+	end
+	return best
+end
+
+World.corridorBounds = function()
+	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+	for _, name in ipairs(AREA_NAMES) do
+		local pos, size = World.zoneBounds(name)
+		if pos and size then
+			minX = math.min(minX, pos.X - size.X * 0.5)
+			maxX = math.max(maxX, pos.X + size.X * 0.5)
+			minZ = math.min(minZ, pos.Z - size.Z * 0.5)
+			maxZ = math.max(maxZ, pos.Z + size.Z * 0.5)
+		end
+	end
+	if minX == math.huge then
+		return nil
+	end
+	local entry = World.entryPosition()
+	minX = math.min(minX, entry.X - 20)
+	return minX, maxX, minZ, maxZ
+end
+
+World.clampToCorridor = function(pos)
+	local minX, maxX, minZ, maxZ = World.corridorBounds()
+	if not minX then
+		return pos
+	end
+	return Vector3.new(math.clamp(pos.X, minX, maxX), pos.Y, math.clamp(pos.Z, minZ, maxZ))
+end
+
+World.groundedY = function(x, z, y)
+	local laneY = World.laneY()
+	if type(y) == "number" then
+		return math.clamp(y, laneY - 2, laneY + 5)
+	end
+	local root = localRoot()
+	local halfY = root and root.Size.Y * 0.5 or 0
+	local found = nil
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local exclude = {}
+	local char = client and client.Character
+	if typeof(char) == "Instance" then
+		table.insert(exclude, char)
+	end
+	params.FilterDescendantsInstances = exclude
+	local hit = Workspace:Raycast(Vector3.new(x, laneY + 40, z), Vector3.new(0, -160, 0), params)
+	if hit then
+		local name = string.lower(tostring(hit.Instance.Name))
+		if string.find(name, "ground", 1, true) and hit.Position.Y <= laneY + 1.5 then
+			found = hit.Position.Y
+		end
+	end
+	if found then
+		return math.clamp(found + halfY, laneY - 2, laneY + 5)
+	end
+	return laneY + 3
+end
+
+World.slotEggPosition = function(inst)
+	if typeof(inst) ~= "Instance" then
+		return nil
+	end
+	local part = inst:FindFirstChild("Hitbox")
+		or inst:FindFirstChild("CustomBoundingBox")
+		or inst:FindFirstChildOfClass("BasePart")
+	if part then
+		return part.Position
+	end
+	return inst:GetPivot().Position
+end
+
+World.placementGrid = function()
+	local mod = GameAPI.Modules.PlotState
+	if type(mod) ~= "table" or type(mod.GetPlotData) ~= "function" then
+		return {}
+	end
+	local ok, plot = pcall(mod.GetPlotData, mod)
+	if not ok or type(plot) ~= "table" then
+		return {}
+	end
+	local petArea = plot.PetArea
+	local center = plot.CenterPoint
+	if not (typeof(petArea) == "Instance" and petArea:IsA("BasePart")) then
+		return {}
+	end
+	if not (typeof(center) == "Instance" and center:IsA("BasePart")) then
+		return {}
+	end
+	local grid = {}
+	local xs, zs = petArea.Size.X, petArea.Size.Z
+	for x = -xs * 0.5 + 5, xs * 0.5 - 5, 7 do
+		for z = -zs * 0.5 + 5, zs * 0.5 - 5, 7 do
+			local world = petArea.CFrame:PointToWorldSpace(Vector3.new(x, 1, z))
+			table.insert(grid, center.CFrame:ToObjectSpace(CFrame.new(world)))
+		end
+	end
+	return grid
+end
+
+World.petAreaStand = function()
+	local mod = GameAPI.Modules.PlotState
+	if type(mod) == "table" and type(mod.GetPlotData) == "function" then
+		local ok, plot = pcall(mod.GetPlotData, mod)
+		if ok and type(plot) == "table" and typeof(plot.PetArea) == "Instance" then
+			return plot.PetArea.Position + Vector3.new(0, 4, 0)
+		end
+	end
+	return World.basePosition()
+end
+
+World.treadmillStand = function()
+	local folder = World.plotInfo()
+	if folder then
+		local part = folder:FindFirstChild("TreadmillBottom")
+		if typeof(part) == "Instance" and part:IsA("BasePart") then
+			return part.Position + Vector3.new(0, 4, 0)
+		end
+	end
+	return nil
+end
+
+World.isNearPlot = function()
+	local root = localRoot()
+	if not root then
+		return false
+	end
+	local mod = GameAPI.Modules.PlotState
+	if type(mod) == "table" and type(mod.IsWorldPositionWithinLocalPlotBounds) == "function" then
+		local ok, res = pcall(mod.IsWorldPositionWithinLocalPlotBounds, mod, root.Position)
+		if ok and res == true then
+			return true
+		end
+	end
+	local stand = World.petAreaStand()
+	if stand then
+		return (root.Position - stand).Magnitude <= 30
+	end
+	return false
+end
+
+World.carrying = false
+World.carriedRecord = nil
+World.onCarryChange = nil
+
+World.pollCarry = function()
+	local records = GameAPI.areaEggSnapshot()
+	local carrying, rec = false, nil
+	if type(records) == "table" then
+		for _, r in pairs(records) do
+			if type(r) == "table" and r.IsCarrying == true and typeof(r.Uid) == "string" then
+				carrying, rec = true, r
+				break
+			end
+		end
+	end
+	if carrying ~= World.carrying then
+		World.carrying = carrying
+		World.carriedRecord = rec
+		if type(World.onCarryChange) == "function" then
+			task.spawn(World.onCarryChange, carrying, rec)
+		end
+	end
+	return carrying, rec
+end
+
 
 Movement.token = 0
 Movement.active = false
@@ -1710,6 +3029,85 @@ function Movement.walkTo(targetPos, timeout)
 	return "timeout"
 end
 
+function Movement.stealSpeed()
+	local v = tonumber(getFlag("StealSpeed", 300)) or 300
+	return math.clamp(v, 50, 1000)
+end
+
+function Movement.buildStealPath(fromPos, toPos)
+	local laneZ = World.laneZ()
+	local laneY = World.laneY()
+	local path = {}
+	if math.abs(fromPos.Z - laneZ) > 3 then
+		table.insert(path, Vector3.new(fromPos.X, laneY, laneZ))
+	end
+	if math.abs(fromPos.X - toPos.X) > 2 then
+		table.insert(path, Vector3.new(toPos.X, laneY, laneZ))
+	end
+	table.insert(path, Vector3.new(toPos.X, laneY, toPos.Z))
+	return path
+end
+
+-- move waypoint-by-waypoint; returns true on full completion
+function Movement.glideAlong(path, opts)
+	opts = opts or {}
+	local speed = opts.speed or Movement.stealSpeed()
+	local perStop = opts.perStop or 20
+	for _, pt in ipairs(path) do
+		local clamped = opts.noClamp and pt or World.clampToCorridor(pt)
+		local result = Movement.moveTo(clamped, { timeout = perStop, speed = speed })
+		if result ~= "arrived" then
+			return false
+		end
+		if opts.still and not opts.still() then
+			return false
+		end
+	end
+	return true
+end
+
+function Movement.applyStealSpeed()
+	local hum = getHumanoid()
+	if not hum then
+		return
+	end
+	local target
+	if Farm.stealEnabled() then
+		target = Movement.stealSpeed()
+	else
+		target = tonumber(getFlag("WalkSpeedValue", 30)) or 30
+		if getFlag("LockLegalWalkSpeed", true) == true then
+			target = math.min(target, 16)
+		end
+	end
+	pcall(function() hum.WalkSpeed = target end)
+end
+
+function Movement.groundedLockStep()
+	if not Farm.stealEnabled() then
+		return
+	end
+	local hrp = getHRP()
+	if not hrp then
+		return
+	end
+	local vel = hrp.AssemblyLinearVelocity
+	if hrp.Position.Y > World.laneY() + 12 then
+		local gy = World.groundedY(hrp.Position.X, hrp.Position.Z, hrp.Position.Y)
+		pcall(function()
+			hrp.CFrame = CFrame.new(hrp.Position.X, gy, hrp.Position.Z)
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
+		end)
+		return
+	end
+	if math.abs(vel.Y) > 4 then
+		pcall(function()
+			hrp.AssemblyLinearVelocity = Vector3.new(vel.X, 0, vel.Z)
+		end)
+	end
+end
+
 -- fast non-blocking glide (used by flee / spawn sniper)
 function Movement.startFastGlide(targetPos, speed)
 	local hrp = getHRP()
@@ -1746,7 +3144,7 @@ Farm.hatchIndex = 1
 
 local RARITY_ORDER = {
 	"Common", "Uncommon", "Rare", "Epic", "Legendary",
-	"Mythic", "Mythical", "Divine", "Celestial", "Secret", "Eternal", "Limited",
+	"Mythic", "Cosmic", "Secret", "Eternal", "Divine",
 }
 Farm.rarityOrder = RARITY_ORDER
 local rarityRank = {}
@@ -1802,10 +3200,37 @@ local function eggIsFriends(info)
 	return false
 end
 
+local function isBigEgg(info)
+	if getFlag("StealBigEggs", false) ~= true then
+		return false
+	end
+	local rec = World.eggRecord(info)
+	local scale = rec and tonumber(rec.AssetScale) or tonumber(info.scale)
+	if not scale then
+		return false
+	end
+	local minScale = tonumber(getFlag("StealBigEggScale", 1.5)) or 1.5
+	return scale >= minScale
+end
+
 function Farm.passesFilters(info)
 	local pos = info.pos
 	if not pos then
 		return false
+	end
+
+	if getFlag("AutoStealAll", false) == true then
+		return true
+	end
+	if isBigEgg(info) then
+		local areaSel = getSelectedList("SelectArea")
+		if not listAllowsAll(areaSel) and #areaSel > 0 then
+			local areaName, areaIndex = World.areaName(info)
+			if not tableFind(areaSel, areaName) and not tableFind(areaSel, tostring(areaIndex)) then
+				return false
+			end
+		end
+		return true
 	end
 
 	local rarity = info.rarity or "Common"
@@ -1975,15 +3400,33 @@ local function maybeRareAlert(info)
 	end
 end
 
-function Farm.placeEgg(uid)
-	local _, cf = World.plotInfo()
-	local hrp = getHRP()
-	local worldPos = hrp and hrp.Position or (cf and cf.Position) or Vector3.zero
-	local localCF
-	if cf then
-		localCF = cf:ToObjectSpace(CFrame.new(worldPos))
+Farm.placeSlotIndex = 0
+local function placementCFrames()
+	if not Farm._grid or os.clock() - Farm._gridAt > 10 then
+		Farm._grid = World.placementGrid()
+		Farm._gridAt = os.clock()
 	end
-	local ok = GameAPI.placeEgg(uid, localCF)
+	return Farm._grid
+end
+
+function Farm.placeEgg(uid)
+	local grid = placementCFrames()
+	if #grid == 0 then
+		_, cf = World.plotInfo()
+		local hrp = getHRP()
+		local worldPos = hrp and hrp.Position or (cf and cf.Position) or Vector3.zero
+		local localCF = cf and cf:ToObjectSpace(CFrame.new(worldPos))
+		local ok = GameAPI.placeEgg(uid, localCF)
+		if ok then
+			return true
+		end
+		clickGuiButtonByText("place")
+		clickGuiButtonByText("deposit")
+		return false
+	end
+	Farm.placeSlotIndex = Farm.placeSlotIndex + 1
+	local cf = grid[((Farm.placeSlotIndex - 1) % #grid) + 1]
+	local ok = GameAPI.placeEgg(uid, cf)
 	if ok then
 		return true
 	end
@@ -1991,6 +3434,55 @@ function Farm.placeEgg(uid)
 	clickGuiButtonByText("deposit")
 	return false
 end
+
+function Farm.placeStep()
+	if World.carrying or not (getFlag("AutoPlace", false) == true
+		or getFlag("AutoPlaceSelected", false) == true
+		or getFlag("AutoPlaceAll", false) == true) then
+		return
+	end
+	local raritySet, mutSet
+	if getFlag("AutoPlaceAll", false) ~= true then
+		local r = getSelectedList("LifecycleRarities")
+		if not listAllowsAll(r) and #r > 0 then
+			raritySet = {}
+			for _, name in ipairs(r) do
+				raritySet[name] = true
+			end
+		end
+		local m = getSelectedList("LifecycleMutations")
+		if not listAllowsAll(m) and #m > 0 then
+			mutSet = {}
+			for _, name in ipairs(m) do
+				if name ~= "None" then
+					mutSet[name] = true
+				end
+			end
+		end
+	end
+	local uids = GameAPI.unplacedEggUids(raritySet, mutSet)
+	local grid = placementCFrames()
+	if #grid > 0 and #uids > #grid then
+		if not Farm.plotFull() then
+			Farm.plotBusyUntil = os.clock() + 30
+			notify("Farm", "No free egg spots left, pausing placement 30s", "warning")
+		end
+		return
+	end
+	if Farm.plotFull() then
+		return
+	end
+	for _, uid in ipairs(uids) do
+		if World.carrying then
+			break
+		end
+		if Farm.placeEgg(uid) then
+			Farm.stats.placed = Farm.stats.placed + 1
+		end
+		task.wait(0.2)
+	end
+end
+Farm.placeStep = Farm.placeStep
 
 function Farm.returnToBase()
 	Farm.state = "Returning"
@@ -2021,6 +3513,19 @@ function Farm.returnToBase()
 	Farm.state = "Idle"
 end
 
+function Farm.stealEnabled()
+	return getFlag("AutoSteal", false) == true
+		or getFlag("AutoStealAll", false) == true
+		or getFlag("StealBigEggs", false) == true
+end
+Farm.stealEnabled = Farm.stealEnabled
+
+Farm.plotBusyUntil = 0
+function Farm.plotFull()
+	return os.clock() < Farm.plotBusyUntil
+end
+Farm.plotFull = Farm.plotFull
+
 function Farm.trySteal(info)
 	Farm.state = "ToEgg"
 	Status.set("Moving to egg")
@@ -2029,16 +3534,16 @@ function Farm.trySteal(info)
 		return false
 	end
 
-	local goal = info.pos
-	local delta = goal - hrp.Position
-	if delta.Magnitude > 3 then
-		goal = goal - delta.Unit * 3
-		goal = Vector3.new(goal.X, info.pos.Y, goal.Z)
+	local eggPos = info.pos
+	local homeX, homeZ = hrp.Position.X, hrp.Position.Z
+	local homeY = World.groundedY(homeX, homeZ, hrp.Position.Y)
+	local still = function()
+		return Farm.stealEnabled()
 	end
-	local result = Movement.moveTo(goal, { timeout = 60 })
-	if result ~= "arrived" then
-		if result == "stuck" then
-			Status.set("Stuck, recovering")
+
+	local path = Movement.buildStealPath(hrp.Position, eggPos)
+	if not Movement.glideAlong(path, { still = still }) then
+		if Farm.failStreak >= 2 then
 			local base = World.basePosition()
 			if base then
 				Movement.startFastGlide(base, 500)
@@ -2052,20 +3557,27 @@ function Farm.trySteal(info)
 	if not hrp then
 		return false
 	end
-	if getFlag("AvoidGuards", true) == true then
+	if getFlag("AvoidGuards", false) == true then
 		local radius = tonumber(getFlag("GuardRadius", 40)) or 40
 		if World.nearestGuardDistance(hrp.Position, true) < radius then
 			Status.set("Guard chasing, skipping")
-			if getFlag("ForestGuardBypass", true) == true then
+			if getFlag("ForestGuardBypass", false) == true then
 				local base = World.basePosition()
 				if base then
 					Movement.startFastGlide(base, 600)
 				end
-				Farm.cooldownUntil = os.clock() + 5
 			end
+			Farm.cooldownUntil = os.clock() + 5
 			return false
 		end
 	end
+
+	local gy = World.groundedY(eggPos.X, eggPos.Z, eggPos.Y)
+	pcall(function()
+		hrp.CFrame = CFrame.new(eggPos.X, gy, eggPos.Z)
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.AssemblyAngularVelocity = Vector3.zero
+	end)
 
 	Farm.state = "Carry"
 	Status.set("Stealing")
@@ -2073,19 +3585,33 @@ function Farm.trySteal(info)
 	if prompt then
 		World.triggerPrompt(prompt)
 	end
-	if not waitForHeldEgg(2.5) then
+	local grabbed = false
+	local t0 = os.clock()
+	local attempts = 0
+	while os.clock() - t0 < 0.55 and attempts < 6 do
+		if not Farm.stealEnabled() then
+			break
+		end
+		attempts = attempts + 1
 		GameAPI.carryEgg(info.uid)
-		waitForHeldEgg(2)
+		if findHeldEggTool() or World.carrying then
+			grabbed = true
+			task.wait(0.08)
+			break
+		end
+		task.wait(0.09)
+	end
+	if not grabbed then
+		grabbed = waitForHeldEgg(1.5)
 	end
 
-	local held, uid = findHeldEggTool()
-	if held then
+	if grabbed then
 		Farm.stats.steals = Farm.stats.steals + 1
 		Farm.failStreak = 0
 		Watchdog.lastProgressAt = os.clock()
 		maybeRareAlert(info)
 		Status.set("Stolen #" .. Farm.stats.steals)
-		if getFlag("AutoPlace", true) == true then
+		if getFlag("AutoReturn", true) == true then
 			Farm.state = "Return"
 			Farm.returnToBase()
 		end
@@ -2095,6 +3621,10 @@ function Farm.trySteal(info)
 	Farm.stats.fails = Farm.stats.fails + 1
 	Farm.failStreak = Farm.failStreak + 1
 	Status.set("Steal failed")
+	local back = getHRP()
+	if back then
+		Movement.glideAlong(Movement.buildStealPath(back.Position, Vector3.new(homeX, homeY, homeZ)), {})
+	end
 	if Farm.failStreak >= 3 then
 		Farm.failStreak = 0
 		Farm.cooldownUntil = os.clock() + 8
@@ -2106,8 +3636,9 @@ function Farm.trySteal(info)
 	return false
 end
 
+
 local function farmStep()
-	if getFlag("AutoSteal", true) ~= true then
+	if not Farm.stealEnabled() then
 		if Farm.state ~= "Idle" then
 			Farm.state = "Idle"
 		end
@@ -2342,51 +3873,89 @@ Farm.favoriteStep = favoriteStep
 
 Progress.lastClaimAt = 0
 
-local function claimStep()
-	if getFlag("AutoClaimIndex", true) == true then
-		if GameAPI.claimCodex() then
+local function claimStep(force)
+	if force == true or getFlag("AutoClaimIndex", false) == true then
+		if GameAPI.claimIndexAll() then
 			Status.set("Index rewards claimed")
 			task.wait(1)
 		end
 	end
-	if getFlag("AutoClaimOffline", false) == true then
-		if GameAPI.collectAway() then
+	if force == true or getFlag("AutoClaimOffline", false) == true then
+		if GameAPI.claimOfflineEarnings() then
 			Status.set("Offline cash collected")
+			task.wait(1)
+		end
+	end
+	if force == true or getFlag("AutoClaimGroupReward", false) == true then
+		if GameAPI.redeemGroupPerk() then
+			Status.set("Group perk redeemed")
 			task.wait(1)
 		end
 	end
 end
 Progress.claimStep = claimStep
 
+Progress.treadmillActive = false
+
+function Progress.stopTreadmillTraining()
+	Progress.treadmillActive = false
+	pcall(GameAPI.treadmillUnequip)
+	if GameAPI.doubleSpeedVisible() then
+		local model = World.treadmillModel()
+		local hrp = getHRP()
+		if model and hrp then
+			local part = model.PrimaryPart or model:FindFirstChildOfClass("BasePart")
+			if part then
+				Movement.moveTo(part.Position + Vector3.new(0, 0, 14), { timeout = 10, speed = 300 })
+			end
+		end
+		task.wait(0.3)
+		if GameAPI.doubleSpeedVisible() then
+			pcall(GameAPI.treadmillUnequip)
+		end
+	end
+end
+Progress.stopTreadmillTraining = Progress.stopTreadmillTraining
+
+function Progress.treadmillWatchStep()
+	if (Progress.treadmillActive or GameAPI.doubleSpeedVisible()) and getFlag("AutoTreadmill", false) ~= true then
+		pcall(Progress.stopTreadmillTraining)
+	end
+end
+Progress.treadmillWatchStep = Progress.treadmillWatchStep
+
 local function treadmillStep()
-	if getFlag("AutoTreadmill", true) ~= true then
+	if getFlag("AutoTreadmill", false) ~= true then
 		return
 	end
+	local stand = World.treadmillStand()
 	local model = World.treadmillModel()
-	if not model then
-		return
+	if not stand and model then
+		local part = model.PrimaryPart or model:FindFirstChildOfClass("BasePart")
+		if part then
+			stand = part.Position
+		end
 	end
-	local part = model.PrimaryPart or model:FindFirstChildOfClass("BasePart")
-	if not part then
+	if not stand then
 		return
 	end
 	local hrp = getHRP()
 	if not hrp then
 		return
 	end
-	local distance = (part.Position - hrp.Position).Magnitude
-	if distance > 8 then
+	local distance = (stand - hrp.Position).Magnitude
+	if distance > 12 then
 		if Movement.active then
 			return
 		end
-		if getFlag("AntiTreadmill", true) == true then
-			GameAPI.treadmillDoff()
+		if Movement.moveTo(stand, { timeout = 40 }) ~= "arrived" then
+			return
 		end
-		Movement.moveTo(part.Position, { timeout = 30 })
-		return
 	end
-	-- on treadmill: keep the "wear still" state alive
-	GameAPI.treadmillWear()
+	GameAPI.treadmillEquipStatic()
+	if GameAPI.doubleSpeedVisible() then
+		Progress.treadmillActive = true
+	end
 end
 Progress.treadmillStep = treadmillStep
 
@@ -2394,9 +3963,14 @@ local function treadmillUpgradeStep()
 	if getFlag("AutoTreadmillUpgrade", false) ~= true then
 		return
 	end
-	local id = World.treadmillId()
-	if id and GameAPI.treadmillTierRaise(id) then
-		Status.set("Treadmill upgraded: " .. id)
+	if getFlag("UpgradeTypes", nil) ~= nil then
+		local types = getSelectedList("UpgradeTypes")
+		if not listAllowsAll(types) and #types > 0 and tableFind(types, "Treadmill") == nil then
+			return
+		end
+	end
+	if GameAPI.buyTreadmillUpgrade() then
+		Status.set("Treadmill upgraded")
 		task.wait(1)
 	end
 end
@@ -2406,8 +3980,13 @@ local function baseUpgradeStep()
 	if getFlag("AutoBaseUpgrade", false) ~= true then
 		return
 	end
-	local ok = GameAPI.baseUpgrade()
-	if ok then
+	if getFlag("UpgradeTypes", nil) ~= nil then
+		local types = getSelectedList("UpgradeTypes")
+		if not listAllowsAll(types) and #types > 0 and tableFind(types, "Base") == nil then
+			return
+		end
+	end
+	if GameAPI.baseUpgradeNext() and GameAPI.buyBaseUpgrade() then
 		Status.set("Base upgraded")
 		task.wait(1)
 	else
@@ -2416,14 +3995,22 @@ local function baseUpgradeStep()
 end
 Progress.baseUpgradeStep = baseUpgradeStep
 
+Progress.lastEquipAt = 0
 local function equipBestStep(force)
 	local wantPets = force == true or getFlag("AutoEquipBest", false) == true
+		or getFlag("AutoEquipBestGear", false) == true
 	local wantBat = force == true or getFlag("AutoEquipBatBest", false) == true
 	local wantTrail = force == true or getFlag("AutoEquipTrail", false) == true
+		or getFlag("AutoEquipBestTrail", false) == true
 	if not (wantPets or wantBat or wantTrail) then
 		return
 	end
-	if wantPets and GameAPI.wearBestPet() then
+	local now = os.clock()
+	if now - Progress.lastEquipAt < 5 then
+		return
+	end
+	Progress.lastEquipAt = now
+	if wantPets and GameAPI.equipBestPets() then
 		Status.set("Best pet equipped")
 		task.wait(0.5)
 	end
@@ -2448,12 +4035,121 @@ local function equipBestStep(force)
 		Status.set("Best bat equipped")
 		task.wait(0.5)
 	end
-	if wantTrail and GameAPI.chooseTrail("Fastest") then
-		Status.set("Best trail equipped")
-		task.wait(0.5)
+	if wantTrail then
+		local best = GameAPI.bestTrailName()
+		local worn = GameAPI.wornTrail()
+		if best and best ~= worn and GameAPI.selectTrail(best) then
+			Status.set("Best trail equipped: " .. tostring(best))
+			task.wait(0.5)
+		elseif wantTrail and GameAPI.chooseTrail("Fastest") then
+			Status.set("Best trail equipped")
+			task.wait(0.5)
+		end
 	end
 end
 Progress.equipBestStep = equipBestStep
+
+function Progress.buyTrailStep()
+	if getFlag("AutoBuyTrail", false) ~= true or World.carrying then
+		return
+	end
+	local wanted = getSelectedList("TrailWanted")
+	if listAllowsAll(wanted) or #wanted == 0 then
+		return
+	end
+	local save = GameAPI.saveData()
+	if not save then
+		return
+	end
+	local owned = save.TrailInventory
+	for _, name in ipairs(wanted) do
+		if type(owned) ~= "table" or owned[name] == nil then
+			if GameAPI.buyTrail(name) then
+				Status.set("Trail purchased: " .. tostring(name))
+				notify("Progress", "Bought trail " .. tostring(name), "info")
+				task.wait(0.35)
+			end
+		end
+	end
+end
+Progress.buyTrailStep = Progress.buyTrailStep
+
+function Progress.sellPetsStep()
+	if getFlag("AutoSellPets", false) ~= true or World.carrying then
+		return
+	end
+	local raritySet, mutSet
+	local r = getSelectedList("SellRarities")
+	if not listAllowsAll(r) and #r > 0 then
+		raritySet = {}
+		for _, name in ipairs(r) do
+			raritySet[name] = true
+		end
+	end
+	local m = getSelectedList("SellMutations")
+	if not listAllowsAll(m) and #m > 0 then
+		mutSet = {}
+		for _, name in ipairs(m) do
+			if name ~= "None" then
+				mutSet[name] = true
+			end
+		end
+	end
+	local maxScale = tonumber(getFlag("SellMaxScale", 10)) or 10
+	local uids = GameAPI.sellablePets({
+		maxScale = maxScale,
+		raritySet = raritySet,
+		mutSet = mutSet,
+		keepMutated = getFlag("SellKeepMutated", true) == true,
+		keepEquipped = getFlag("SellKeepEquipped", true) == true,
+	})
+	local sold = 0
+	for _, uid in ipairs(uids) do
+		if World.carrying or getFlag("AutoSellPets", false) ~= true then
+			break
+		end
+		if GameAPI.sellAsset(uid) then
+			sold = sold + 1
+		end
+		task.wait(0.15)
+	end
+	if sold > 0 then
+		Status.set("Sold " .. sold .. " pets")
+		if getFlag("WebhookFuse", false) == true then
+			Webhook.send("Pets Sold", sold .. " pets sold", 0x22c55e)
+		end
+	end
+end
+Progress.sellPetsStep = Progress.sellPetsStep
+
+function Progress.sellEggsStep()
+	if getFlag("AutoSellEggs", false) ~= true or World.carrying then
+		return
+	end
+	local raritySet
+	local r = getSelectedList("SellEggRarities")
+	if not listAllowsAll(r) and #r > 0 then
+		raritySet = {}
+		for _, name in ipairs(r) do
+			raritySet[name] = true
+		end
+	end
+	local uids = GameAPI.sellableEggUids(raritySet)
+	local sold = 0
+	for _, uid in ipairs(uids) do
+		if World.carrying or getFlag("AutoSellEggs", false) ~= true then
+			break
+		end
+		if GameAPI.sellAsset(uid) then
+			sold = sold + 1
+		end
+		task.wait(0.15)
+	end
+	if sold > 0 then
+		Status.set("Sold " .. sold .. " eggs")
+	end
+end
+Progress.sellEggsStep = Progress.sellEggsStep
 
 local function buyBestStep()
 	if getFlag("AutoBuyBest", false) ~= true then
@@ -2806,29 +4502,142 @@ function Fusion.scanFusion()
 	end
 end
 
+Fusion.fusing = false
+Fusion.lastFuseAt = Fusion.lastFuseAt or 0
+
+function Fusion.pickFuseGroup()
+	local groups = GameAPI.fuseGroups()
+	local keepN = tonumber(getFlag("FuseKeepPerCategory", 0)) or 0
+	local maxScale = tonumber(getFlag("FuseMaxScale", 10)) or 10
+	local targetMode = getDropdownValue("FuseTarget", "Highest Rarity")
+	local keepMutated = getFlag("FuseKeepMutated", true) == true
+	local keepEquipped = getFlag("FuseKeepEquipped", true) == true
+	local equipped = GameAPI.equippedUids()
+	local raritySet
+	local r = getSelectedList("FusionRarities")
+	if not listAllowsAll(r) and #r > 0 then
+		raritySet = {}
+		for _, name in ipairs(r) do
+			raritySet[name] = true
+		end
+	end
+	local mutSet
+	local m = getSelectedList("FuseMutations")
+	if not listAllowsAll(m) and #m > 0 then
+		mutSet = {}
+		for _, name in ipairs(m) do
+			if name ~= "None" then
+				mutSet[name] = true
+			end
+		end
+	end
+
+	local candidates = {}
+	for _, group in pairs(groups) do
+		local items = {}
+		for _, item in ipairs(group.items) do
+			local scale = item.scale
+			local skip = false
+			if maxScale > 0 and scale > maxScale then
+				skip = true
+			end
+			if not skip and keepEquipped and equipped[item.uid] then
+				skip = true
+			end
+			if not skip and keepMutated then
+				local data, rec = GameAPI.petInfo(item.uid)
+				local hasMut = false
+				if rec then
+					hasMut = type(rec.Mutations) == "table" and next(rec.Mutations) ~= nil
+					if not hasMut and typeof(rec.BaseMutation) == "string" and rec.BaseMutation ~= "" then
+						hasMut = true
+					end
+				end
+				if mutSet and next(mutSet) ~= nil then
+					for _, mm in ipairs(GameAPI.eggMutations(data or rec)) do
+						if mutSet[mm] then
+							hasMut = true
+							break
+						end
+					end
+				end
+				if hasMut then
+					skip = true
+				end
+			end
+			if not skip then
+				table.insert(items, item)
+			end
+		end
+		if #items > keepN then
+			local rarity = group.rarity
+			local passesRarity = true
+			if raritySet and next(raritySet) ~= nil then
+				passesRarity = raritySet[rarity] == true
+			end
+			if passesRarity then
+				local rank = Farm.getRarityRank(rarity) or 0
+				local score
+				if targetMode == "Lowest Rarity" then
+					score = -rank
+				elseif targetMode == "Most Duplicates" then
+					score = #items * 1000 - rank
+				else
+					score = rank
+				end
+				candidates[#candidates + 1] = {
+					uidList = { items[1].uid, items[2].uid, items[3].uid },
+					rarity = rarity,
+					score = score,
+				}
+			end
+		end
+	end
+	if #candidates == 0 then
+		return nil
+	end
+	table.sort(candidates, function(a, b)
+		if a.score == b.score then
+			return a.rarity > b.rarity
+		end
+		return a.score > b.score
+	end)
+	return candidates[1]
+end
+Fusion.pickFuseGroup = Fusion.pickFuseGroup
+
 local function fusionStep(forceFuse)
-	local best = Fusion.scanTrios()
-	if not best then
+	if Fusion.fusing or World.carrying then
 		return
 	end
-	local feedRarities = getSelectedList("FusionRarities")
-	if not (listAllowsAll(feedRarities) or tableFind(feedRarities, best.rarity) ~= nil) then
+	local group = Fusion.pickFuseGroup()
+	if not group then
 		return
 	end
-	local fuseDelay = forceFuse == true and 1 or 30
+	local fuseDelay = forceFuse == true and 1 or (tonumber(getFlag("FuseInterval", 8)) or 8)
 	if (forceFuse == true or getFlag("AutoFuse", false) == true)
 		and os.clock() - Fusion.lastFuseAt > fuseDelay then
 		Fusion.lastFuseAt = os.clock()
+		Fusion.fusing = true
+		local price = GameAPI.fusePrice(group.uidList)
 		local ok = GameAPI.fuse()
 		if ok then
-			notify("Fusion", ("Feeding %s trio"):format(best.rarity))
+			local detail = price and (" (price " .. price .. ")") or ""
+			notify("Fusion", ("Feeding %s trio%s"):format(group.rarity, detail))
 			if getFlag("WebhookFuse", true) == true then
-				Webhook.send("Fusion Started", ("Feeding %s trio"):format(best.rarity), 0xf59e0b)
+				Webhook.send("Fusion Started", ("Feeding %s trio"):format(group.rarity), 0xf59e0b)
 			end
-			task.wait(1)
+			if getFlag("FuseAutoReveal", true) == true then
+				task.delay(8, function()
+					clickGuiButtonByText("reveal")
+					clickGuiButtonByText("open")
+				end)
+			end
 		else
 			clickGuiButtonByText("fuse")
 		end
+		task.wait(1)
+		Fusion.fusing = false
 	end
 end
 Fusion.step = fusionStep
@@ -2891,6 +4700,107 @@ end
 EventMod.step = eventStep
 
 ServerHop.hops = 0
+
+ServerHop.visited = {}
+ServerHop.retryAt = 0
+ServerHop.busy = false
+ServerHop.hopAt = os.clock()
+ServerHop.noTargetSince = 0
+
+local function rememberVisited(jobId)
+	if typeof(jobId) ~= "string" or jobId == "" then
+		return
+	end
+	local n = 0
+	for _ in pairs(ServerHop.visited) do
+		n = n + 1
+	end
+	if n >= 300 then
+		ServerHop.visited = {}
+	end
+	ServerHop.visited[jobId] = true
+end
+
+function ServerHop.hopNow(reason)
+	if ServerHop.busy then
+		return false
+	end
+	ServerHop.busy = true
+	notify("Server Hop", "Hopping: " .. tostring(reason or "requested"))
+	if getFlag("WebhookEnabled", false) == true then
+		Webhook.sendSummary()
+		task.wait(0.6)
+	end
+	local ok = false
+	for round = 1, 3 do
+		local targets = GameAPI.pickServerTargets(ServerHop.visited)
+		if #targets == 0 then
+			ServerHop.retryAt = os.clock() + 30
+			notify("Server Hop", "No candidates, retrying in 30s", "warning")
+			ServerHop.busy = false
+			return false
+		end
+		local n = math.min(#targets, 10)
+		for i = 1, n do
+			rememberVisited(targets[i].id)
+			if GameAPI.teleportToJob(targets[i].id) then
+				ok = true
+				ServerHop.hopAt = os.clock()
+				ServerHop.busy = false
+				return true
+			end
+			task.wait(0.5)
+		end
+	end
+	ServerHop.retryAt = os.clock() + 10
+	notify("Server Hop", "Hop failed, retrying in 10s", "warning")
+	ServerHop.busy = false
+	return false
+end
+ServerHop.hopNow = ServerHop.hopNow
+
+function ServerHop.playersHopStep()
+	if getFlag("AutoServerHop", false) ~= true or ServerHop.busy then
+		return
+	end
+	if os.clock() < ServerHop.retryAt then
+		return
+	end
+	local mode = getDropdownValue("HopMode", "No Matching Eggs")
+	local value = tonumber(getFlag("HopValue", 15)) or 15
+	if mode == "No Matching Eggs" then
+		World.refreshAllEggs()
+		local found = false
+		for _, info in pairs(World.eggs) do
+			if typeof(info.model) == "Instance" and info.pos and Farm.passesFilters(info) then
+				found = true
+				break
+			end
+		end
+		if found then
+			ServerHop.noTargetSince = 0
+			return
+		end
+		if ServerHop.noTargetSince == 0 then
+			ServerHop.noTargetSince = os.clock()
+			return
+		end
+		if os.clock() - ServerHop.noTargetSince >= value then
+			ServerHop.noTargetSince = 0
+			ServerHop.hopNow("No matching eggs in this server")
+		end
+	elseif mode == "Timed Interval" then
+		if os.clock() - ServerHop.hopAt >= value * 60 then
+			ServerHop.hopNow("Interval reached")
+		end
+	else
+		if Farm.stats.steals >= value then
+			Farm.stats.steals = 0
+			ServerHop.hopNow("Steal count reached")
+		end
+	end
+end
+ServerHop.playersHopStep = ServerHop.playersHopStep
 
 function ServerHop.listServers()
 	local ok, servers = pcall(TeleportService.GetServerServers, TeleportService,
@@ -3023,6 +4933,7 @@ end
 
 
 GameAPI.init()
+GameAPI.initV2()
 
 Esp.boxes = {}
 Esp.labels = {}
@@ -3032,20 +4943,18 @@ local MAX_ESP_TARGETS = 60
 
 local RARITY_COLORS = {
 	Common = Color3.fromRGB(160, 160, 160),
-	Uncommon = Color3.fromRGB(90, 200, 90),
-	Rare = Color3.fromRGB(80, 140, 255),
-	Epic = Color3.fromRGB(160, 80, 255),
-	Legendary = Color3.fromRGB(255, 150, 40),
-	Mythic = Color3.fromRGB(255, 90, 60),
-	Mythical = Color3.fromRGB(255, 70, 50),
-	Divine = Color3.fromRGB(255, 50, 50),
-	Celestial = Color3.fromRGB(255, 230, 90),
-	Secret = Color3.fromRGB(255, 120, 200),
-	Eternal = Color3.fromRGB(90, 220, 255),
-	Limited = Color3.fromRGB(240, 240, 240),
+	Uncommon = Color3.fromRGB(110, 195, 255),
+	Rare = Color3.fromRGB(110, 195, 255),
+	Epic = Color3.fromRGB(110, 195, 255),
+	Legendary = Color3.fromRGB(255, 190, 80),
+	Mythic = Color3.fromRGB(255, 190, 80),
+	Cosmic = Color3.fromRGB(255, 90, 90),
+	Secret = Color3.fromRGB(255, 90, 90),
+	Eternal = Color3.fromRGB(255, 120, 255),
+	Divine = Color3.fromRGB(255, 120, 255),
 }
 local function rarityColor(r)
-	return RARITY_COLORS[r] or Color3.fromRGB(180, 180, 180)
+	return RARITY_COLORS[r] or Color3.fromRGB(190, 200, 215)
 end
 Esp.rarityColor = rarityColor
 
@@ -3198,7 +5107,10 @@ end
 function Esp.step()
 	local eggOn = getFlag("EggEsp", false) == true
 	local plotOn = getFlag("PlotEsp", false) == true
-	if not eggOn and not plotOn then
+	local guardOn = getFlag("GuardEsp", false) == true
+	local petOn = getFlag("PetEsp", false) == true
+	local playerOn = getFlag("PlayerEsp", false) == true
+	if not (eggOn or plotOn or guardOn or petOn or playerOn) then
 		Esp.clear()
 		return
 	end
@@ -3263,6 +5175,57 @@ function Esp.step()
 		local folder = World.plotInfo()
 		if folder then
 			ensureBox(folder, Color3.fromRGB(90, 220, 90), keep)
+		end
+	end
+	if guardOn then
+		for model, info in pairs(World.scanGuards()) do
+			if typeof(model) == "Instance" and info.pos then
+				local color = info.state == "Chasing"
+					and Color3.fromRGB(255, 90, 90)
+					or Color3.fromRGB(255, 190, 80)
+				local box = ensureBox(model, color, keep)
+				if box then
+					local label = ensureLabel(model)
+					if label then
+						label.text.Text = "GUARD " .. tostring(info.state or "?")
+					end
+				end
+			end
+		end
+	end
+	if petOn then
+		local folder = World.plotInfo()
+		if folder then
+			for _, d in ipairs(folder:GetDescendants()) do
+				if d:IsA("Model") then
+					local owner = d:GetAttribute("OwnerUserId")
+					if type(owner) == "number" then
+						local own = owner == (client and client.UserId)
+						local color = own and Color3.fromRGB(90, 220, 90) or Color3.fromRGB(255, 120, 255)
+						local box = ensureBox(d, color, keep)
+						if box then
+							local label = ensureLabel(d)
+							if label then
+								local rarity = d:GetAttribute("Rarity")
+								label.text.Text = (own and "PET " or "PET? ") .. tostring(rarity or d.Name)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	if playerOn then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= client and typeof(player.Character) == "Instance" then
+				local box = ensureBox(player.Character, Color3.fromRGB(110, 195, 255), keep)
+				if box then
+					local label = ensureLabel(player.Character)
+					if label then
+						label.text.Text = player.Name
+					end
+				end
+			end
 		end
 	end
 	Esp.prune(keep)
@@ -3494,7 +5457,7 @@ local function watchdogStep()
 	if hum and hum.Health <= 0 and getFlag("Immortality", false) ~= true then
 		return
 	end
-	if getFlag("AutoSteal", true) ~= true then
+	if not Farm.stealEnabled() then
 		return
 	end
 	local now = os.clock()
@@ -3604,21 +5567,22 @@ local function setDebugConsole(enabled)
 end
 
 local antiAfkConn = nil
+local function antiAfkLoop()
+	while true do
+		task.wait(2)
+		if getFlag("AntiAfk", false) == true and tick() - lastAfkTap >= 60 then
+			pcall(ConfigMod.antiAfkTap)
+		end
+	end
+end
 local function setAntiAfk(enabled)
 	if antiAfkConn then
 		antiAfkConn:Disconnect()
 		antiAfkConn = nil
 	end
-	if not enabled or not client or not VirtualUser then
-		return
+	if enabled and client then
+		antiAfkConn = track(task.spawn(antiAfkLoop), "Core")
 	end
-	antiAfkConn = track(client.Idled:Connect(function()
-		local cam = Workspace.CurrentCamera
-		local cf = cam and cam.CFrame or CFrame.new()
-		VirtualUser:Button2Down(Vector2.new(0, 0), cf)
-		task.wait(1)
-		VirtualUser:Button2Up(Vector2.new(0, 0), cf)
-	end), "Core")
 end
 setAntiAfk(getFlag("AntiAfk", true) == true)
 
@@ -3699,12 +5663,313 @@ end
 ConfigMod.applyOptimization()
 World.ensureEggFolder()
 
-local function bootDefaults()
-	if getFlag("AutoSteal", false) == true then
-		toggleTask("SAE_Farm", true, 0.5, Farm.step)
+-- fly / noclip (frame-driven, idle cost = one flag check)
+local moveConn = RunService.Heartbeat:Connect(function(dt)
+	if getFlag("Fly", false) == true then
+		local hum = getHumanoid()
+		local hrp = getHRP()
+		local cam = Workspace.CurrentCamera
+		if not hum or not hrp or not cam then
+			return
+		end
+		pcall(function() hum.PlatformStand = true end)
+		local dir = Vector3.zero
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+			dir = dir + cam.CFrame.LookVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+			dir = dir - cam.CFrame.LookVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+			dir = dir - cam.CFrame.RightVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+			dir = dir + cam.CFrame.RightVector
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+			dir = dir + Vector3.new(0, 1, 0)
+		end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+			dir = dir - Vector3.new(0, 1, 0)
+		end
+		if dir.Magnitude > 0 then
+			local speed = tonumber(getFlag("FlySpeed", 60)) or 60
+			pcall(function()
+				hrp.CFrame = hrp.CFrame + dir.Unit * (speed * math.min(dt, 0.1))
+			end)
+		end
+	elseif getFlag("NoClip", false) == true then
+		local char = client and client.Character
+		if typeof(char) == "Instance" then
+			for _, d in ipairs(char:GetDescendants()) do
+				if d:IsA("BasePart") and d.CanCollide then
+					pcall(function() d.CanCollide = false end)
+				end
+			end
+		end
 	end
-	if getFlag("AutoHatch", false) == true then
-		toggleTask("SAE_Hatch", true, 3, Farm.hatchStep)
+end)
+track(moveConn, "Core")
+
+ConfigMod.waypoints = {
+	["Base"] = function()
+		return World.basePosition()
+	end,
+	["Pet Area"] = function()
+		return World.petAreaStand()
+	end,
+	["Treadmill"] = function()
+		return World.treadmillStand()
+	end,
+	["Fuse Machine"] = function()
+		local folder = World.plotInfo()
+		if folder then
+			for _, d in ipairs(folder:GetDescendants()) do
+				local n = string.lower(d.Name)
+				if string.find(n, "fuse", 1, true) then
+					if d:IsA("BasePart") then
+						return d.Position
+					elseif d:IsA("Model") then
+						local part = d.PrimaryPart or d:FindFirstChildOfClass("BasePart")
+						if part then
+							return part.Position
+						end
+					end
+				end
+			end
+		end
+		return World.basePosition()
+	end,
+	["Lobby Entry"] = function()
+		return World.entryPosition()
+	end,
+}
+for _, name in ipairs(World.areaNames) do
+	ConfigMod.waypoints[name] = (function(areaName)
+		return function()
+			return World.zoneCenter(areaName)
+		end
+	end)(name)
+end
+
+function ConfigMod.resolveWaypoint(name)
+	local fn = ConfigMod.waypoints[name]
+	if type(fn) == "function" then
+		local ok, pos = pcall(fn)
+		if ok and typeof(pos) == "Vector3" then
+			return pos
+		end
+	end
+	return nil
+end
+
+function ConfigMod.teleportToWaypoint()
+	local name = getDropdownValue("WaypointTarget", "Base")
+	task.spawn(function()
+		local dest = ConfigMod.resolveWaypoint(name)
+		if not dest then
+			notify("Waypoint", "That waypoint is not available right now", "warning")
+			return
+		end
+		local result = Movement.moveTo(dest, { timeout = 90, speed = 800 })
+		if result ~= "arrived" then
+			notify("Waypoint", "Travel failed: " .. result, "danger")
+		end
+	end)
+end
+
+function ConfigMod.antiPauseStep()
+	if getFlag("AntiGameplayPause", true) ~= true then
+		return
+	end
+	local vu = svc("VirtualUser")
+	if vu then
+		pcall(function()
+			vu:MouseMovement(2, 0)
+		end)
+	end
+end
+
+-- performance rendering mode + 2D stats overlay
+local renderOverlay = nil
+local renderLabels = {}
+local function buildRenderOverlay()
+	if renderOverlay and renderOverlay.Parent then
+		return
+	end
+	local ok, gui = pcall(function()
+		local g = Instance.new("ScreenGui")
+		g.Name = "SAEStatOverlay"
+		g.ResetOnSpawn = false
+		g.DisplayOrder = 999
+		return g
+	end)
+	if not ok then
+		return
+	end
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.fromOffset(260, 150)
+	frame.Position = UDim2.fromOffset(10, 10)
+	frame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+	frame.BackgroundTransparency = 0.25
+	frame.CornerRadius = UDim.new(0.08, 0)
+	frame.Parent = gui
+	local rows = { "money", "speed", "pets", "eggs", "stolen", "session" }
+	for i, key in ipairs(rows) do
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(1, -16, 0, 20)
+		lbl.Position = UDim2.new(0, 8, 0, 8 + (i - 1) * 22)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.Gotham
+		lbl.TextSize = 14
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextColor3 = Color3.fromRGB(232, 163, 77)
+		lbl.Text = key:upper() .. "  -"
+		lbl.Parent = frame
+		renderLabels[key] = lbl
+	end
+	renderOverlay = gui
+	gui.Parent = CoreGui
+end
+
+local function updateRenderOverlay()
+	if not renderOverlay or not renderOverlay.Parent then
+		return
+	end
+	local save = GameAPI.saveData()
+	if not save then
+		return
+	end
+	local sec = math.floor(os.clock() - Watchdog.sessionStart)
+	local text
+	if sec < 60 then
+		text = sec .. "s"
+	elseif sec < 3600 then
+		text = string.format("%dm %ds", math.floor(sec / 60), sec % 60)
+	else
+		text = string.format("%dh %dm", math.floor(sec / 3600), math.floor(sec / 3600) % 60)
+	end
+	local values = {
+		money = Webhook.fmtMoney(save.Money),
+		speed = Webhook.fmtMoney(save.SpeedPower),
+		pets = tostring(GameAPI.eggInventoryCount() and 0 or 0),
+		eggs = tostring(GameAPI.eggInventoryCount()),
+		stolen = tostring(Farm.stats.steals),
+		session = text,
+	}
+	local petCount = 0
+	if type(save.Inventory) == "table" then
+		for _ in pairs(save.Inventory) do
+			petCount = petCount + 1
+		end
+	end
+	values.pets = tostring(petCount)
+	for key, lbl in pairs(renderLabels) do
+		if lbl and lbl.Parent then
+			lbl.Text = key:upper() .. "  " .. tostring(values[key] or "-")
+		end
+	end
+end
+
+function ConfigMod.setDisableRendering(enabled)
+	if enabled then
+		buildRenderOverlay()
+		pcall(function() Lighting.GlobalShadows = false end)
+		pcall(function()
+			if type(syn) == "table" and type(syn.set_render_scale) == "function" then
+				syn.set_render_scale(0.5)
+			end
+		end)
+	else
+		if renderOverlay and renderOverlay.Parent then
+			renderOverlay:Destroy()
+			renderOverlay = nil
+		end
+		renderLabels = {}
+		pcall(function() Lighting.GlobalShadows = true end)
+	end
+end
+
+local function renderOverlayStep()
+	if getFlag("DisableRendering", false) == true then
+		pcall(updateRenderOverlay)
+	elseif renderOverlay and renderOverlay.Parent then
+		renderOverlay:Destroy()
+		renderOverlay = nil
+		renderLabels = {}
+	end
+end
+
+local function registerCoreTasks()
+	CoreTasks.register("Auto Steal Egg", {
+		interval = 0.2,
+		ready = function()
+			-- farmStep handles the carrying case itself (return + place)
+			return Farm.stealEnabled() and not GameAPI.eggInventoryFull()
+		end,
+		run = Farm.step,
+	})
+	CoreTasks.register("Auto Place Egg", {
+		interval = 2,
+		ready = function()
+			local placing = getFlag("AutoPlace", false) == true
+				or getFlag("AutoPlaceSelected", false) == true
+				or getFlag("AutoPlaceAll", false) == true
+			if not placing or World.carrying or Farm.plotFull() then
+				return false
+			end
+			return #GameAPI.unplacedEggUids(nil, nil) > 0
+		end,
+		run = Farm.placeStep,
+	})
+	CoreTasks.register("Auto Hatch", {
+		interval = 2,
+		ready = function()
+			return getFlag("AutoHatch", false) == true and not World.carrying
+		end,
+		run = Farm.hatchStep,
+	})
+	CoreTasks.register("Auto Treadmill", {
+		interval = 4,
+		ready = function()
+			return getFlag("AutoTreadmill", false) == true and not World.carrying
+		end,
+		run = Progress.treadmillStep,
+	})
+end
+
+World.onCarryChange = function(carrying, rec)
+	if not carrying then
+		return
+	end
+	Watchdog.lastProgressAt = os.clock()
+	if type(rec) == "table" and typeof(rec.Uid) == "string" then
+		Webhook.session.stolen = Webhook.session.stolen + 1
+		Webhook.eggLogEntry(rec)
+		local rarity = GameAPI.resolveRarity(rec.AssetCategory)
+		local minRare = getDropdownValue("WebhookRareMin", "Epic")
+		if getFlag("WebhookRare", false) == true and rarity
+			and Farm.getRarityRank(rarity) >= Farm.getRarityRank(minRare) then
+			local mention = Webhook.mentionForRarity(rarity)
+			Webhook.send("Rare Egg Stolen",
+				("**%s** in %s"):format(GameAPI.assetName(rec.AssetCategory), tostring(rec.AreaId or "?")),
+				0x9b59b6, mention)
+		end
+	end
+end
+
+local function bootDefaults()
+	registerCoreTasks()
+	toggleTask("SAE_CoreTasks", true, 0.2, CoreTasks.pump)
+	toggleTask("SAE_Stability", true, 1, Stability.pump)
+	toggleTask("SAE_Webhook", true, 5, Webhook.webhookStep)
+	toggleTask("SAE_GroundLock", true, 0.1, Movement.groundedLockStep)
+	toggleTask("SAE_StealSpeed", true, 0.35, Movement.applyStealSpeed)
+	toggleTask("SAE_TreadmillWatch", true, 1, Progress.treadmillWatchStep)
+	toggleTask("SAE_RenderOverlay", true, 1, renderOverlayStep)
+	if getFlag("AntiGameplayPause", true) == true then
+		toggleTask("SAE_AntiPause", true, 1, ConfigMod.antiPauseStep)
 	end
 	if getFlag("AutoSell", false) == true then
 		toggleTask("SAE_Sell", true, 6, Farm.sellStep)
@@ -3712,29 +5977,36 @@ local function bootDefaults()
 	if getFlag("AutoFavorite", false) == true then
 		toggleTask("SAE_Fav", true, 10, Farm.favoriteStep)
 	end
+	if getFlag("AutoSellPets", false) == true then
+		toggleTask("SAE_SellPets", true, tonumber(getFlag("SellInterval", 6)) or 6, Progress.sellPetsStep)
+	end
+	if getFlag("AutoSellEggs", false) == true then
+		toggleTask("SAE_SellEggs", true, tonumber(getFlag("SellEggInterval", 8)) or 8, Progress.sellEggsStep)
+	end
 	if getFlag("AutoClaimIndex", false) == true then
-		toggleTask("SAE_Claim", true, 30, Progress.claimStep)
+		toggleTask("SAE_Claim", true, 8, Progress.claimStep)
 	end
 	if getFlag("AutoClaimOffline", false) == true then
-		toggleTask("SAE_ClaimOffline", true, 60, Progress.claimStep)
+		toggleTask("SAE_ClaimOffline", true, 15, Progress.claimStep)
 	end
-	if getFlag("AutoTreadmill", false) == true then
-		toggleTask("SAE_Treadmill", true, 5, Progress.treadmillStep)
+	if getFlag("AutoClaimGroupReward", false) == true then
+		toggleTask("SAE_ClaimGroup", true, 20, Progress.claimStep)
 	end
 	if getFlag("AutoTreadmillUpgrade", false) == true then
 		toggleTask("SAE_TreadmillUp", true, 15, Progress.treadmillUpgradeStep)
 	end
 	if getFlag("AutoBaseUpgrade", false) == true then
-		toggleTask("SAE_BaseUp", true, 20, Progress.baseUpgradeStep)
+		toggleTask("SAE_BaseUp", true, 15, Progress.baseUpgradeStep)
 	end
-	if getFlag("AutoEquipBest", false) == true then
-		toggleTask("SAE_Equip", true, 30, Progress.equipBestStep)
+	if getFlag("AutoEquipBest", false) == true
+		or getFlag("AutoEquipBestGear", false) == true
+		or getFlag("AutoEquipBestTrail", false) == true
+		or getFlag("AutoEquipTrail", false) == true
+		or getFlag("AutoEquipBatBest", false) == true then
+		toggleTask("SAE_Equip", true, 5, Progress.equipBestStep)
 	end
-	if getFlag("AutoEquipTrail", false) == true then
-		toggleTask("SAE_EquipTrail", true, 30, Progress.equipBestStep)
-	end
-	if getFlag("AutoEquipBatBest", false) == true then
-		toggleTask("SAE_EquipBat", true, 30, Progress.equipBestStep)
+	if getFlag("AutoBuyTrail", false) == true then
+		toggleTask("SAE_BuyTrail", true, 6, Progress.buyTrailStep)
 	end
 	if getFlag("AutoDisarmTraps", false) == true then
 		toggleTask("SAE_TrapDisarm", true, 4, Protection.disarmStep)
@@ -3745,20 +6017,21 @@ local function bootDefaults()
 	if getFlag("BatAura", false) == true then
 		toggleTask("SAE_BatAura", true, 0.3, Protection.batAuraStep)
 	end
-	if getFlag("AntiRagdoll", false) == true then
-		toggleTask("SAE_Safety", true, 0.2, Protection.safetyStep)
-	end
+	-- safety is self-gating per-flag
+	toggleTask("SAE_Safety", true, 0.2, Protection.safetyStep)
 	if getFlag("AutoDispute", false) == true then
 		toggleTask("SAE_Dispute", true, 1, Dispute.step)
 	end
-	if getFlag("EggEsp", false) == true then
-		toggleTask("SAE_Esp", true, 0.5, Esp.step)
-	end
+	-- ESP is self-gating: always-on loop, clears itself when no category is enabled
+	toggleTask("SAE_Esp", true, 0.4, Esp.step)
 	if getFlag("AutoFuse", false) == true then
-		toggleTask("SAE_Fusion", true, 5, Fusion.step)
+		toggleTask("SAE_Fusion", true, tonumber(getFlag("FuseInterval", 8)) or 8, Fusion.step)
 	end
 	if getFlag("EventMonitor", false) == true then
 		toggleTask("SAE_Event", true, 3, EventMod.step)
+	end
+	if getFlag("AutoServerHop", false) == true then
+		toggleTask("SAE_PlayersHop", true, 3, ServerHop.playersHopStep)
 	end
 	if getFlag("AutoHopTarget", false) == true then
 		toggleTask("SAE_TargetHop", true, 25, ServerHop.step)
@@ -3768,7 +6041,7 @@ local function bootDefaults()
 	end
 end
 bootDefaults()
-
+bootDefaults()
 
 local MUTATION_OPTIONS = { "All", "None", "Golden", "Silver", "Rainbow" }
 local RARITY_OPTIONS = Farm.rarityOrder
@@ -3937,13 +6210,40 @@ FarmSection:createToggle({
 	flagName = "SmartTween",
 	Callback = function() end,
 })
-addIntervalToggle(FarmSection, {
+FarmSection:createToggle({
 	Name = "Auto Steal",
-	flagName = "AutoSteal",
-	tag = "SAE_Farm",
-	delay = 0.5,
-	Step = Farm.step,
 	Flag = false,
+	flagName = "AutoSteal",
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Auto Steal All",
+	Description = "steal every egg in range, ignores rarity/mutation filters",
+	Flag = false,
+	flagName = "AutoStealAll",
+	Callback = function() end,
+})
+FarmSection:createSlider({
+	Name = "Steal Speed",
+	flagName = "StealSpeed",
+	value = 300,
+	minValue = 50,
+	maxValue = 1000,
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Steal Big Eggs",
+	Flag = false,
+	flagName = "StealBigEggs",
+	Callback = function() end,
+})
+FarmSection:createSlider({
+	Name = "Big Egg Min Size (x)",
+	flagName = "StealBigEggScale",
+	value = 1.5,
+	minValue = 1,
+	maxValue = 50,
+	Callback = function() end,
 })
 FarmSection:createToggle({
 	Name = "Auto Place",
@@ -3951,13 +6251,79 @@ FarmSection:createToggle({
 	flagName = "AutoPlace",
 	Callback = function() end,
 })
-addIntervalToggle(FarmSection, {
-	Name = "Auto Hatch",
-	flagName = "AutoHatch",
-	tag = "SAE_Hatch",
-	delay = 3,
-	Step = Farm.hatchStep,
+FarmSection:createToggle({
+	Name = "Place Selected Only",
 	Flag = false,
+	flagName = "AutoPlaceSelected",
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Place All",
+	Flag = false,
+	flagName = "AutoPlaceAll",
+	Callback = function() end,
+})
+FarmSection:createDropdown({
+	Name = "Lifecycle Rarities",
+	Description = "for Place Selected — which rarities to place",
+	flagName = "LifecycleRarities",
+	Flag = { "All" },
+	List = RARITY_MULTI,
+	multi = true,
+	Callback = function() end,
+})
+FarmSection:createDropdown({
+	Name = "Lifecycle Mutations",
+	flagName = "LifecycleMutations",
+	Flag = { "All" },
+	List = MUTATION_OPTIONS,
+	multi = true,
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Auto Hatch",
+	Flag = false,
+	flagName = "AutoHatch",
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Auto Return to Base",
+	Description = "return with the carried egg and place it",
+	Flag = true,
+	flagName = "AutoReturn",
+	Callback = function() end,
+})
+FarmSection:createLabel({
+	Name = "Priority System",
+	Special = true,
+})
+FarmSection:createDropdown({
+	Name = "Priority 1",
+	flagName = "PrioritySlot1",
+	Flag = { "Auto Steal Egg" },
+	List = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" },
+	Callback = function() end,
+})
+FarmSection:createDropdown({
+	Name = "Priority 2",
+	flagName = "PrioritySlot2",
+	Flag = { "Auto Place Egg" },
+	List = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" },
+	Callback = function() end,
+})
+FarmSection:createDropdown({
+	Name = "Priority 3",
+	flagName = "PrioritySlot3",
+	Flag = { "Auto Hatch" },
+	List = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" },
+	Callback = function() end,
+})
+FarmSection:createDropdown({
+	Name = "Priority 4",
+	flagName = "PrioritySlot4",
+	Flag = { "Auto Treadmill" },
+	List = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" },
+	Callback = function() end,
 })
 FarmSection:createLabel({
 	Name = "Sell",
@@ -3989,6 +6355,67 @@ FarmSection:createToggle({
 	Name = "Keep All Mutated",
 	Flag = false,
 	flagName = "SellKeepAllMutated",
+	Callback = function() end,
+})
+FarmSection:createSlider({
+	Name = "Sell Max Scale (x)",
+	Description = "only sell pets at or under this scale",
+	flagName = "SellMaxScale",
+	value = 10,
+	minValue = 0,
+	maxValue = 10,
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Never Sell Mutated",
+	Flag = true,
+	flagName = "SellKeepMutated",
+	Callback = function() end,
+})
+FarmSection:createToggle({
+	Name = "Never Sell Equipped",
+	Flag = true,
+	flagName = "SellKeepEquipped",
+	Callback = function() end,
+})
+addIntervalToggle(FarmSection, {
+	Name = "Auto Sell Pets",
+	flagName = "AutoSellPets",
+	tag = "SAE_SellPets",
+	delay = 6,
+	Step = Progress.sellPetsStep,
+	Flag = false,
+})
+FarmSection:createSlider({
+	Name = "Sell Interval (s)",
+	flagName = "SellInterval",
+	value = 6,
+	minValue = 1,
+	maxValue = 120,
+	Callback = function() end,
+})
+addIntervalToggle(FarmSection, {
+	Name = "Auto Sell Eggs",
+	flagName = "AutoSellEggs",
+	tag = "SAE_SellEggs",
+	delay = 8,
+	Step = Progress.sellEggsStep,
+	Flag = false,
+})
+FarmSection:createDropdown({
+	Name = "Sell Egg Rarities",
+	flagName = "SellEggRarities",
+	Flag = { "All" },
+	List = RARITY_MULTI,
+	multi = true,
+	Callback = function() end,
+})
+FarmSection:createSlider({
+	Name = "Sell Egg Interval (s)",
+	flagName = "SellEggInterval",
+	value = 8,
+	minValue = 1,
+	maxValue = 120,
 	Callback = function() end,
 })
 addIntervalToggle(FarmSection, {
@@ -4106,7 +6533,7 @@ FarmSection:createDropdown({
 	Name = "Target Priority",
 	flagName = "TargetPriority",
 	Flag = { "Rarest" },
-	List = { "Rarest", "Nearest", "Furthest", "Biggest" },
+	List = { "Rarest", "Nearest", "Furthest", "Biggest Size" },
 	Callback = function() end,
 })
 FarmSection:createToggle({
@@ -4172,13 +6599,11 @@ ProgressSection:createLabel({
 	Name = "Progression",
 	Special = true,
 })
-addIntervalToggle(ProgressSection, {
+ProgressSection:createToggle({
 	Name = "AFK Treadmill",
-	flagName = "AutoTreadmill",
-	tag = "SAE_Treadmill",
-	delay = 5,
-	Step = Progress.treadmillStep,
 	Flag = false,
+	flagName = "AutoTreadmill",
+	Callback = function() end,
 })
 addIntervalToggle(ProgressSection, {
 	Name = "Auto Treadmill Upgrade",
@@ -4191,8 +6616,25 @@ addIntervalToggle(ProgressSection, {
 	Name = "Auto Base Upgrade",
 	flagName = "AutoBaseUpgrade",
 	tag = "SAE_BaseUp",
-	delay = 20,
+	delay = 15,
 	Step = Progress.baseUpgradeStep,
+})
+ProgressSection:createDropdown({
+	Name = "Upgrade Types",
+	Description = "which upgrades auto-buy covers",
+	flagName = "UpgradeTypes",
+	Flag = { "Base", "Treadmill" },
+	List = { "Base", "Treadmill" },
+	multi = true,
+	Callback = function() end,
+})
+addIntervalToggle(ProgressSection, {
+	Name = "Auto Claim Group Reward",
+	flagName = "AutoClaimGroupReward",
+	tag = "SAE_ClaimGroup",
+	delay = 20,
+	Step = Progress.claimStep,
+	Flag = false,
 })
 ProgressSection:createLabel({
 	Name = "Utility",
@@ -4202,23 +6644,76 @@ addIntervalToggle(ProgressSection, {
 	Name = "Auto Equip Best Pets",
 	flagName = "AutoEquipBest",
 	tag = "SAE_Equip",
-	delay = 30,
+	delay = 5,
 	Step = Progress.equipBestStep,
 })
 addIntervalToggle(ProgressSection, {
 	Name = "Buy and Equip Best Trail",
 	flagName = "AutoEquipTrail",
-	tag = "SAE_EquipTrail",
-	delay = 30,
+	tag = "SAE_Equip",
+	delay = 5,
 	Step = Progress.equipBestStep,
 })
 addIntervalToggle(ProgressSection, {
 	Name = "Auto Equip Best Bat",
 	flagName = "AutoEquipBatBest",
-	tag = "SAE_EquipBat",
-	delay = 30,
+	tag = "SAE_Equip",
+	delay = 5,
 	Step = Progress.equipBestStep,
 })
+addIntervalToggle(ProgressSection, {
+	Name = "Auto Equip Best Trail",
+	flagName = "AutoEquipBestTrail",
+	tag = "SAE_Equip",
+	delay = 5,
+	Step = Progress.equipBestStep,
+	Flag = false,
+})
+addIntervalToggle(ProgressSection, {
+	Name = "Auto Equip Best Gear",
+	flagName = "AutoEquipBestGear",
+	tag = "SAE_Equip",
+	delay = 5,
+	Step = Progress.equipBestStep,
+	Flag = false,
+})
+ProgressSection:createLabel({
+	Name = "Trails",
+	Special = true,
+})
+addIntervalToggle(ProgressSection, {
+	Name = "Auto Buy Trail",
+	flagName = "AutoBuyTrail",
+	tag = "SAE_BuyTrail",
+	delay = 6,
+	Step = Progress.buyTrailStep,
+	Flag = false,
+})
+do
+	local trailNames = { "All" }
+	local names = GameAPI.trailData()
+	local count = 0
+	for name in pairs(names) do
+		count = count + 1
+		if count <= 40 then
+			table.insert(trailNames, name)
+		end
+	end
+	table.sort(trailNames, function(a, b)
+		if a == "All" then return true end
+		if b == "All" then return false end
+		return a < b
+	end)
+	ProgressSection:createDropdown({
+		Name = "Trail Wanted",
+		Description = "trails to auto-buy when you can afford them",
+		flagName = "TrailWanted",
+		Flag = { "All" },
+		List = trailNames,
+		multi = true,
+		Callback = function() end,
+	})
+end
 
 -- Protection
 ProtectionSection:createLabel({
@@ -4350,13 +6845,11 @@ ProtectionSection:createToggle({
 	flagName = "AntiFling",
 	Callback = function() end,
 })
-addIntervalToggle(ProtectionSection, {
+ProtectionSection:createToggle({
 	Name = "Anti Ragdoll / Anti Hit",
-	flagName = "AntiRagdoll",
-	tag = "SAE_Safety",
-	delay = 0.2,
-	Step = Protection.safetyStep,
 	Flag = false,
+	flagName = "AntiRagdoll",
+	Callback = function() end,
 })
 
 -- Dispute
@@ -4447,13 +6940,11 @@ EspSection:createSlider({
 	maxValue = 5000,
 	Callback = function() end,
 })
-addIntervalToggle(EspSection, {
+EspSection:createToggle({
 	Name = "Enable ESP",
+	Flag = false,
 	flagName = "EggEsp",
-	tag = "SAE_Esp",
-	delay = 0.5,
-	Step = Esp.step,
-	jitter = 0,
+	Callback = function() end,
 })
 EspSection:createToggle({
 	Name = "Plot ESP",
@@ -4465,6 +6956,24 @@ EspSection:createToggle({
 	Name = "Show Taken",
 	Flag = false,
 	flagName = "EspShowTaken",
+	Callback = function() end,
+})
+EspSection:createToggle({
+	Name = "Guard ESP",
+	Flag = false,
+	flagName = "GuardEsp",
+	Callback = function() end,
+})
+EspSection:createToggle({
+	Name = "Pet ESP",
+	Flag = false,
+	flagName = "PetEsp",
+	Callback = function() end,
+})
+EspSection:createToggle({
+	Name = "Player ESP",
+	Flag = false,
+	flagName = "PlayerEsp",
 	Callback = function() end,
 })
 
@@ -4488,12 +6997,71 @@ FusionSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
+FusionSection:createDropdown({
+	Name = "Pick Group By",
+	flagName = "FuseTarget",
+	Flag = { "Highest Rarity" },
+	List = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" },
+	Callback = function() end,
+})
+FusionSection:createSlider({
+	Name = "Keep Per Pet Type",
+	Description = "keep this many smallest pets of each type unfused",
+	flagName = "FuseKeepPerCategory",
+	value = 0,
+	minValue = 0,
+	maxValue = 20,
+	Callback = function() end,
+})
+FusionSection:createSlider({
+	Name = "Fuse Max Scale (x)",
+	flagName = "FuseMaxScale",
+	value = 10,
+	minValue = 0,
+	maxValue = 10,
+	Callback = function() end,
+})
+FusionSection:createToggle({
+	Name = "Never Fuse Mutated",
+	Flag = true,
+	flagName = "FuseKeepMutated",
+	Callback = function() end,
+})
+FusionSection:createToggle({
+	Name = "Never Fuse Equipped",
+	Flag = true,
+	flagName = "FuseKeepEquipped",
+	Callback = function() end,
+})
+FusionSection:createToggle({
+	Name = "Auto Complete Reveal",
+	Flag = true,
+	flagName = "FuseAutoReveal",
+	Callback = function() end,
+})
+FusionSection:createSlider({
+	Name = "Fuse Interval (s)",
+	flagName = "FuseInterval",
+	value = 8,
+	minValue = 1,
+	maxValue = 120,
+	Callback = function() end,
+})
 addIntervalToggle(FusionSection, {
 	Name = "Auto Fuse",
 	flagName = "AutoFuse",
 	tag = "SAE_Fusion",
-	delay = 5,
+	delay = 8,
 	Step = Fusion.step,
+	Flag = false,
+})
+FusionSection:createButton({
+	Name = "Fuse Now",
+	Callback = function()
+		task.spawn(function()
+			Fusion.step(true)
+		end)
+	end,
 })
 FusionSection:createButton({
 	Name = "Check Fusable Trios",
@@ -4587,6 +7155,39 @@ HopSection:createButton({
 	Name = "Server Hop (Random)",
 	Callback = function()
 		ServerHop.hopToNext()
+	end,
+})
+addIntervalToggle(HopSection, {
+	Name = "Auto Server Hop",
+	Description = "hop by player count / interval / steal count",
+	flagName = "AutoServerHop",
+	tag = "SAE_PlayersHop",
+	delay = 3,
+	Step = ServerHop.playersHopStep,
+	Flag = false,
+})
+HopSection:createDropdown({
+	Name = "Hop When",
+	flagName = "HopMode",
+	Flag = { "No Matching Eggs" },
+	List = { "No Matching Eggs", "Timed Interval", "After Steal Count" },
+	Callback = function() end,
+})
+HopSection:createSlider({
+	Name = "Hop Threshold",
+	Description = "No Matching Eggs: seconds | Timed Interval: minutes | After Steal Count: eggs",
+	flagName = "HopValue",
+	value = 15,
+	minValue = 1,
+	maxValue = 200,
+	Callback = function() end,
+})
+HopSection:createButton({
+	Name = "Hop Now",
+	Callback = function()
+		task.spawn(function()
+			ServerHop.hopNow("Manual hop")
+		end)
 	end,
 })
 HopSection:createSlider({
@@ -4695,6 +7296,36 @@ WebhookSection:createToggle({
 	flagName = "WebhookDisconnect",
 	Callback = function() end,
 })
+WebhookSection:createInputBox({
+	Name = "Ping User ID",
+	Description = "numeric Discord user id to mention in alerts",
+	flagName = "WebhookPingId",
+	Flag = "",
+	Callback = function() end,
+})
+WebhookSection:createToggle({
+	Name = "List Spawned Eggs",
+	Flag = true,
+	flagName = "WebhookEggSpawns",
+	Callback = function() end,
+})
+WebhookSection:createSlider({
+	Name = "Summary Interval (min)",
+	flagName = "WebhookSummaryInterval",
+	value = 15,
+	minValue = 1,
+	maxValue = 180,
+	Callback = function() end,
+})
+WebhookSection:createButton({
+	Name = "Send Summary Now",
+	Callback = function()
+		task.spawn(function()
+			local ok = Webhook.sendSummary()
+			notify("Webhook", ok and "Summary sent" or "Webhook send failed", ok and "info" or "danger")
+		end)
+	end,
+})
 WebhookSection:createButton({
 	Name = "Send Test Message",
 	Callback = function()
@@ -4784,6 +7415,47 @@ ConfigSection:createToggle({
 	end,
 })
 ConfigSection:createToggle({
+	Name = "Fly",
+	Flag = false,
+	flagName = "Fly",
+	Callback = function() end,
+})
+ConfigSection:createSlider({
+	Name = "Fly Speed",
+	flagName = "FlySpeed",
+	value = 60,
+	minValue = 10,
+	maxValue = 400,
+	Callback = function() end,
+})
+ConfigSection:createToggle({
+	Name = "No Clip",
+	Flag = false,
+	flagName = "NoClip",
+	Callback = function() end,
+})
+ConfigSection:createDropdown({
+	Name = "Waypoint",
+	flagName = "WaypointTarget",
+	Flag = { "Base" },
+	List = { "Base", "Pet Area", "Treadmill", "Fuse Machine", "Lobby Entry",
+		"Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic" },
+	Callback = function() end,
+})
+ConfigSection:createButton({
+	Name = "Travel to Waypoint",
+	Callback = function()
+		ConfigMod.teleportToWaypoint()
+	end,
+})
+ConfigSection:createToggle({
+	Name = "Performance Overlay",
+	Description = "disable 3D rendering for FPS, shows live stats",
+	Flag = false,
+	flagName = "DisableRendering",
+	Callback = function() end,
+})
+ConfigSection:createToggle({
 	Name = "Set Walk Speed",
 	Flag = false,
 	flagName = "WalkSpeedEnabled",
@@ -4842,6 +7514,22 @@ ConfigSection:createToggle({
 	Name = "Auto Rejoin",
 	Flag = false,
 	flagName = "AutoRejoin",
+	Callback = function() end,
+})
+addIntervalToggle(ConfigSection, {
+	Name = "No Gameplay Paused",
+	Description = "keeps sending input so the game never pauses",
+	flagName = "AntiGameplayPause",
+	tag = "SAE_AntiPause",
+	delay = 1,
+	Step = ConfigMod.antiPauseStep,
+	Flag = true,
+})
+ConfigSection:createToggle({
+	Name = "Auto Reconnect",
+	Description = "rejoins when Roblox shows an error/disconnect prompt",
+	Flag = false,
+	flagName = "AutoReconnect",
 	Callback = function() end,
 })
 ConfigSection:createSlider({
