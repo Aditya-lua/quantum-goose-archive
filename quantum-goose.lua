@@ -3339,28 +3339,19 @@ local function setLabelText(ctrl, text)
 	end)
 end
 
+local function header(sec, text)
+	sec:createLabel({
+		Name = text,
+		Special = true,
+	})
+end
+
 local InfoSection = ui:CreateSection("Info")
-local EggsStealSection = ui:CreateSection("Eggs - Steal")
-local EggsHopSection = ui:CreateSection("Eggs - Server Hop")
-local EggsHandlingSection = ui:CreateSection("Eggs - Handling")
-local PetsSection = ui:CreateSection("Pets")
-local PetsFuseSection = ui:CreateSection("Pets - Fuse")
-local PetsSellSection = ui:CreateSection("Pets - Sell")
-local PetsSellEggsSection = ui:CreateSection("Pets - Sell Eggs")
-local PetsEarningsSection = ui:CreateSection("Pets - Earnings")
-local ShopUpgradesSection = ui:CreateSection("Shop - Upgrades")
-local ShopIndexSection = ui:CreateSection("Shop - Index")
-local ShopTrailsSection = ui:CreateSection("Shop - Trails")
-local ShopTrainingSection = ui:CreateSection("Shop - Training")
-local ShopGearSection = ui:CreateSection("Shop - Gear")
-local EspSection = ui:CreateSection("Visuals - ESP")
-local MovementSection = ui:CreateSection("Visuals - Movement")
-local FlySection = ui:CreateSection("Visuals - Fly")
-local WaypointSection = ui:CreateSection("Visuals - Waypoint")
+local MainSection = ui:CreateSection("Main")
+local VisualsSection = ui:CreateSection("Visuals")
 local PrioritySection = ui:CreateSection("Priority System")
 local WebhookSection = ui:CreateSection("Webhooks")
-local MenuSection = ui:CreateSection("Settings - Menu")
-local PerformanceSection = ui:CreateSection("Settings - Performance")
+local SettingsSection = ui:CreateSection("Settings")
 
 local SessionLabel = InfoSection:createLabel({
 	Name = "Session time: 0s",
@@ -3368,7 +3359,8 @@ local SessionLabel = InfoSection:createLabel({
 	flagName = "saeSessionTime",
 })
 
--- Info
+-- Info: Account
+header(InfoSection, "Account")
 InfoSection:createLabel({
 	Name = "User: " .. LocalPlayer.Name,
 	Special = true,
@@ -3377,6 +3369,9 @@ InfoSection:createLabel({
 	Name = "Executor: " .. executorName,
 	Special = true,
 })
+
+-- Info: Game Info
+header(InfoSection, "Game Info")
 InfoSection:createLabel({
 	Name = "Steal an Egg [" .. PLACE_ID .. "]",
 	Special = true,
@@ -3392,8 +3387,9 @@ InfoSection:createButton({
 	end,
 })
 
--- Eggs - Steal
-EggsStealSection:createDropdown({
+-- Main: Steal Eggs
+header(MainSection, "Steal Eggs")
+MainSection:createDropdown({
 	Name = "Areas",
 	flagName = "StealZones",
 	Flag = {},
@@ -3401,7 +3397,7 @@ EggsStealSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-EggsStealSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Rarities",
 	flagName = "StealRarities",
 	Flag = {},
@@ -3409,7 +3405,7 @@ EggsStealSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-EggsStealSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Mutations",
 	flagName = "StealMutations",
 	Flag = {},
@@ -3417,26 +3413,26 @@ EggsStealSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-EggsStealSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Target Priority",
 	flagName = "StealPriority",
 	Flag = "Rarest",
 	List = { "Rarest", "Nearest", "Furthest", "Biggest Size" },
 	Callback = function() end,
 })
-EggsStealSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Steal Selected",
 	Flag = false,
 	flagName = "AutoStealSelected",
 	Callback = function() end,
 })
-EggsStealSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Steal All",
 	Flag = false,
 	flagName = "AutoStealAll",
 	Callback = function() end,
 })
-EggsStealSection:createSlider({
+MainSection:createSlider({
 	Name = "Steal Speed",
 	flagName = "StealSpeed",
 	value = 300,
@@ -3444,13 +3440,13 @@ EggsStealSection:createSlider({
 	maxValue = 1000,
 	Callback = function() end,
 })
-EggsStealSection:createToggle({
+MainSection:createToggle({
 	Name = "Steal Big Eggs",
 	Flag = false,
 	flagName = "StealBigEggs",
 	Callback = function() end,
 })
-EggsStealSection:createSlider({
+MainSection:createSlider({
 	Name = "Big Egg Minimum Size",
 	flagName = "StealBigEggScale",
 	value = 1.5,
@@ -3458,34 +3454,35 @@ EggsStealSection:createSlider({
 	maxValue = 50,
 	Callback = function() end,
 })
-EggsStealSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Drop Held Egg",
 	Flag = false,
 	flagName = "AutoDropEgg",
 	Callback = function() end,
 })
-EggsStealSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Return To Base",
 	Flag = true,
 	flagName = "AutoReturn",
 	Callback = function() end,
 })
 
--- Eggs - Server Hop
-EggsHopSection:createToggle({
+-- Main: Server Hop
+header(MainSection, "Server Hop")
+MainSection:createToggle({
 	Name = "Auto Server Hop",
 	Flag = false,
 	flagName = "AutoServerHop",
 	Callback = function() end,
 })
-EggsHopSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Hop When",
 	flagName = "HopMode",
 	Flag = HOP_MODES[1],
 	List = HOP_MODES,
 	Callback = function() end,
 })
-EggsHopSection:createSlider({
+MainSection:createSlider({
 	Name = "Threshold (s / min / steals)",
 	flagName = "HopValue",
 	value = 15,
@@ -3493,7 +3490,7 @@ EggsHopSection:createSlider({
 	maxValue = 200,
 	Callback = function() end,
 })
-EggsHopSection:createButton({
+MainSection:createButton({
 	Name = "Hop Now",
 	Callback = function()
 		task.spawn(function()
@@ -3503,8 +3500,9 @@ EggsHopSection:createButton({
 	end,
 })
 
--- Eggs - Handling
-EggsHandlingSection:createDropdown({
+-- Main: Egg Handling
+header(MainSection, "Egg Handling")
+MainSection:createDropdown({
 	Name = "Rarities",
 	flagName = "LifecycleRarities",
 	Flag = {},
@@ -3512,7 +3510,7 @@ EggsHandlingSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-EggsHandlingSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Mutations",
 	flagName = "LifecycleMutations",
 	Flag = {},
@@ -3520,47 +3518,49 @@ EggsHandlingSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-EggsHandlingSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Place Selected",
 	Flag = false,
 	flagName = "AutoPlaceSelected",
 	Callback = function() end,
 })
-EggsHandlingSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Place All",
 	Flag = false,
 	flagName = "AutoPlaceAll",
 	Callback = function() end,
 })
-EggsHandlingSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Hatch Ready",
 	Flag = false,
 	flagName = "AutoOpenReadyEggs",
 	Callback = function() end,
 })
-EggsHandlingSection:createButton({
+MainSection:createButton({
 	Name = "Drop Held Egg",
 	Callback = function()
 		FN.dropHeldEgg()
 	end,
 })
 
--- Pets
-PetsSection:createToggle({
+-- Main: Pets
+header(MainSection, "Pets")
+MainSection:createToggle({
 	Name = "Auto Equip Best Pets",
 	Flag = false,
 	flagName = "AutoEquipBest",
 	Callback = function() end,
 })
 
--- Pets - Fuse
-PetsFuseSection:createToggle({
+-- Main: Auto Fuse
+header(MainSection, "Auto Fuse")
+MainSection:createToggle({
 	Name = "Auto Fuse Pets [Beta]",
 	Flag = false,
 	flagName = "AutoFusePets",
 	Callback = function() end,
 })
-PetsFuseSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Fuse Rarities",
 	flagName = "FuseRarities",
 	Flag = {},
@@ -3568,7 +3568,7 @@ PetsFuseSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-PetsFuseSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Fuse Mutations",
 	flagName = "FuseMutations",
 	Flag = {},
@@ -3576,32 +3576,32 @@ PetsFuseSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-PetsFuseSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Pick Group By",
 	flagName = "FuseTarget",
 	Flag = "Highest Rarity",
 	List = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" },
 	Callback = function() end,
 })
-PetsFuseSection:createToggle({
+MainSection:createToggle({
 	Name = "Never Fuse Mutated",
 	Flag = true,
 	flagName = "FuseKeepMutated",
 	Callback = function() end,
 })
-PetsFuseSection:createToggle({
+MainSection:createToggle({
 	Name = "Never Fuse Equipped",
 	Flag = true,
 	flagName = "FuseKeepEquipped",
 	Callback = function() end,
 })
-PetsFuseSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Complete Reveal",
 	Flag = true,
 	flagName = "FuseAutoReveal",
 	Callback = function() end,
 })
-PetsFuseSection:createSlider({
+MainSection:createSlider({
 	Name = "Maximum Scale To Fuse",
 	flagName = "FuseMaxScale",
 	value = 10,
@@ -3609,7 +3609,7 @@ PetsFuseSection:createSlider({
 	maxValue = 10,
 	Callback = function() end,
 })
-PetsFuseSection:createSlider({
+MainSection:createSlider({
 	Name = "Keep Per Pet Type",
 	flagName = "FuseKeepPerCategory",
 	value = 0,
@@ -3617,7 +3617,7 @@ PetsFuseSection:createSlider({
 	maxValue = 20,
 	Callback = function() end,
 })
-PetsFuseSection:createSlider({
+MainSection:createSlider({
 	Name = "Fuse Interval (s)",
 	flagName = "FuseInterval",
 	value = 8,
@@ -3625,7 +3625,7 @@ PetsFuseSection:createSlider({
 	maxValue = 120,
 	Callback = function() end,
 })
-PetsFuseSection:createButton({
+MainSection:createButton({
 	Name = "Fuse Now",
 	Callback = function()
 		task.spawn(function()
@@ -3634,14 +3634,15 @@ PetsFuseSection:createButton({
 	end,
 })
 
--- Pets - Sell
-PetsSellSection:createToggle({
+-- Main: Auto Sell Pets
+header(MainSection, "Auto Sell Pets")
+MainSection:createToggle({
 	Name = "Auto Sell Pets",
 	Flag = false,
 	flagName = "AutoSellPets",
 	Callback = function() end,
 })
-PetsSellSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Sell Rarities",
 	flagName = "SellRarities",
 	Flag = {},
@@ -3649,7 +3650,7 @@ PetsSellSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-PetsSellSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Sell Mutations",
 	flagName = "SellMutations",
 	Flag = {},
@@ -3657,19 +3658,19 @@ PetsSellSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-PetsSellSection:createToggle({
+MainSection:createToggle({
 	Name = "Never Sell Mutated",
 	Flag = true,
 	flagName = "SellKeepMutated",
 	Callback = function() end,
 })
-PetsSellSection:createToggle({
+MainSection:createToggle({
 	Name = "Never Sell Equipped",
 	Flag = true,
 	flagName = "SellKeepEquipped",
 	Callback = function() end,
 })
-PetsSellSection:createSlider({
+MainSection:createSlider({
 	Name = "Maximum Scale To Sell",
 	flagName = "SellMaxScale",
 	value = 10,
@@ -3677,7 +3678,7 @@ PetsSellSection:createSlider({
 	maxValue = 10,
 	Callback = function() end,
 })
-PetsSellSection:createSlider({
+MainSection:createSlider({
 	Name = "Sell Interval (s)",
 	flagName = "SellInterval",
 	value = 6,
@@ -3686,14 +3687,15 @@ PetsSellSection:createSlider({
 	Callback = function() end,
 })
 
--- Pets - Sell Eggs
-PetsSellEggsSection:createToggle({
+-- Main: Auto Sell Eggs
+header(MainSection, "Auto Sell Eggs")
+MainSection:createToggle({
 	Name = "Auto Sell Eggs",
 	Flag = false,
 	flagName = "AutoSellEggs",
 	Callback = function() end,
 })
-PetsSellEggsSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Sell Rarities",
 	flagName = "SellEggRarities",
 	Flag = {},
@@ -3701,7 +3703,7 @@ PetsSellEggsSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-PetsSellEggsSection:createSlider({
+MainSection:createSlider({
 	Name = "Sell Interval (s)",
 	flagName = "SellEggInterval",
 	value = 8,
@@ -3710,22 +3712,24 @@ PetsSellEggsSection:createSlider({
 	Callback = function() end,
 })
 
--- Pets - Earnings
-PetsEarningsSection:createToggle({
+-- Main: Earnings
+header(MainSection, "Earnings")
+MainSection:createToggle({
 	Name = "Claim Offline Earnings",
 	Flag = false,
 	flagName = "AutoClaimOffline",
 	Callback = function() end,
 })
 
--- Shop - Upgrades
-ShopUpgradesSection:createToggle({
+-- Main: Upgrades
+header(MainSection, "Upgrades")
+MainSection:createToggle({
 	Name = "Auto Buy Upgrades",
 	Flag = false,
 	flagName = "AutoUpgrades",
 	Callback = function() end,
 })
-ShopUpgradesSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Upgrades",
 	flagName = "UpgradeTypes",
 	Flag = { "Base", "Treadmill" },
@@ -3734,28 +3738,30 @@ ShopUpgradesSection:createDropdown({
 	Callback = function() end,
 })
 
--- Shop - Index
-ShopIndexSection:createToggle({
+-- Main: Index
+header(MainSection, "Index")
+MainSection:createToggle({
 	Name = "Auto Claim Index",
 	Flag = false,
 	flagName = "AutoClaimIndex",
 	Callback = function() end,
 })
-ShopIndexSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Claim Group Reward",
 	Flag = false,
 	flagName = "AutoClaimGroupReward",
 	Callback = function() end,
 })
 
--- Shop - Trails
-ShopTrailsSection:createToggle({
+-- Main: Trails
+header(MainSection, "Trails")
+MainSection:createToggle({
 	Name = "Auto Buy Trail",
 	Flag = false,
 	flagName = "AutoBuyTrail",
 	Callback = function() end,
 })
-ShopTrailsSection:createDropdown({
+MainSection:createDropdown({
 	Name = "Trails",
 	flagName = "TrailWanted",
 	Flag = {},
@@ -3763,73 +3769,76 @@ ShopTrailsSection:createDropdown({
 	multi = true,
 	Callback = function() end,
 })
-ShopTrailsSection:createToggle({
+MainSection:createToggle({
 	Name = "Auto Equip Best Trail",
 	Flag = false,
 	flagName = "AutoEquipBestTrail",
 	Callback = function() end,
 })
 
--- Shop - Training
-ShopTrainingSection:createToggle({
+-- Main: Training
+header(MainSection, "Training")
+MainSection:createToggle({
 	Name = "Auto Treadmill Training",
 	Flag = false,
 	flagName = "AutoTreadmill",
 	Callback = function() end,
 })
 
--- Shop - Gear
-ShopGearSection:createToggle({
+-- Main: Gear
+header(MainSection, "Gear")
+MainSection:createToggle({
 	Name = "Auto Equip Best Gear",
 	Flag = false,
 	flagName = "AutoEquipBestGear",
 	Callback = function() end,
 })
 
--- Visuals - ESP
-EspSection:createToggle({
+-- Visuals: ESP
+header(VisualsSection, "ESP")
+VisualsSection:createToggle({
 	Name = "World Egg ESP",
 	Flag = false,
 	flagName = "EspWorldEggs",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Carried And Dropped Egg ESP",
 	Flag = false,
 	flagName = "EspCarriedEggs",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Guard ESP",
 	Flag = false,
 	flagName = "EspGuards",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Pet ESP",
 	Flag = false,
 	flagName = "EspPets",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Player ESP",
 	Flag = false,
 	flagName = "EspPlayers",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Machine ESP",
 	Flag = false,
 	flagName = "EspMachines",
 	Callback = function() end,
 })
-EspSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Plot ESP",
 	Flag = false,
 	flagName = "EspPlots",
 	Callback = function() end,
 })
-EspSection:createSlider({
+VisualsSection:createSlider({
 	Name = "Render Distance",
 	flagName = "EspDistance",
 	value = 2000,
@@ -3838,14 +3847,15 @@ EspSection:createSlider({
 	Callback = function() end,
 })
 
--- Visuals - Movement
-MovementSection:createToggle({
+-- Visuals: Movement
+header(VisualsSection, "Movement")
+VisualsSection:createToggle({
 	Name = "Walk Speed Override",
 	Flag = false,
 	flagName = "WalkSpeedEnabled",
 	Callback = function() end,
 })
-MovementSection:createSlider({
+VisualsSection:createSlider({
 	Name = "Walk Speed",
 	flagName = "WalkSpeed",
 	value = 32,
@@ -3853,13 +3863,13 @@ MovementSection:createSlider({
 	maxValue = 500,
 	Callback = function() end,
 })
-MovementSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Jump Power Override",
 	Flag = false,
 	flagName = "JumpPowerEnabled",
 	Callback = function() end,
 })
-MovementSection:createSlider({
+VisualsSection:createSlider({
 	Name = "Jump Power",
 	flagName = "JumpPower",
 	value = 50,
@@ -3867,27 +3877,28 @@ MovementSection:createSlider({
 	maxValue = 500,
 	Callback = function() end,
 })
-MovementSection:createToggle({
+VisualsSection:createToggle({
 	Name = "Infinite Jump",
 	Flag = false,
 	flagName = "InfJump",
 	Callback = function() end,
 })
-MovementSection:createToggle({
+VisualsSection:createToggle({
 	Name = "NoClip",
 	Flag = false,
 	flagName = "NoClip",
 	Callback = function() end,
 })
 
--- Visuals - Fly
-FlySection:createToggle({
+-- Visuals: Fly
+header(VisualsSection, "Fly")
+VisualsSection:createToggle({
 	Name = "Fly",
 	Flag = false,
 	flagName = "Fly",
 	Callback = function() end,
 })
-FlySection:createSlider({
+VisualsSection:createSlider({
 	Name = "Fly Speed",
 	flagName = "FlySpeed",
 	value = 60,
@@ -3896,19 +3907,20 @@ FlySection:createSlider({
 	Callback = function() end,
 })
 
--- Visuals - Waypoint
+-- Visuals: Waypoint Teleport
+header(VisualsSection, "Waypoint Teleport")
 local WAYPOINT_VALUES = { "Base", "Pet Area", "Treadmill", "Fuse Machine", "Lobby Entry" }
 for _, name in ipairs(AREA_NAMES) do
 	table.insert(WAYPOINT_VALUES, name)
 end
-WaypointSection:createDropdown({
+VisualsSection:createDropdown({
 	Name = "Waypoint",
 	flagName = "WaypointTarget",
 	Flag = "Base",
 	List = WAYPOINT_VALUES,
 	Callback = function() end,
 })
-WaypointSection:createButton({
+VisualsSection:createButton({
 	Name = "Teleport To Waypoint",
 	Callback = function()
 		task.spawn(function()
@@ -3924,7 +3936,8 @@ WaypointSection:createButton({
 	end,
 })
 
--- Priority System
+-- Priority System: Task Order
+header(PrioritySection, "Task Order")
 PrioritySection:createDropdown({
 	Name = "Priority 1",
 	flagName = "PrioritySlot1",
@@ -3954,7 +3967,8 @@ PrioritySection:createDropdown({
 	Callback = function() end,
 })
 
--- Webhooks
+-- Webhooks: Webhook
+header(WebhookSection, "Webhook")
 WebhookSection:createToggle({
 	Name = "Enable Webhooks",
 	Flag = false,
@@ -4011,14 +4025,15 @@ WebhookSection:createButton({
 	end,
 })
 
--- Settings - Menu
-MenuSection:createToggle({
+-- Settings: Menu
+header(SettingsSection, "Menu")
+SettingsSection:createToggle({
 	Name = "Anti-AFK",
 	Flag = true,
 	flagName = "AntiAfk",
 	Callback = function() end,
 })
-MenuSection:createToggle({
+SettingsSection:createToggle({
 	Name = "No Gameplay Paused",
 	Flag = true,
 	flagName = "AntiGameplayPause",
@@ -4026,7 +4041,7 @@ MenuSection:createToggle({
 		FN.applyAntiGameplayPause(enabled)
 	end,
 })
-MenuSection:createToggle({
+SettingsSection:createToggle({
 	Name = "Auto Hide UI",
 	Flag = false,
 	flagName = "AutoHideUi",
@@ -4034,19 +4049,19 @@ MenuSection:createToggle({
 		FN.applyRendering(enabled)
 	end,
 })
-MenuSection:createToggle({
+SettingsSection:createToggle({
 	Name = "Auto Reconnect",
 	Flag = false,
 	flagName = "AutoReconnect",
 	Callback = function() end,
 })
-MenuSection:createToggle({
+SettingsSection:createToggle({
 	Name = "Auto Execute",
 	Flag = false,
 	flagName = "AutoExecute",
 	Callback = function() end,
 })
-MenuSection:createToggle({
+SettingsSection:createToggle({
 	Name = "Disable 3D Rendering",
 	Flag = false,
 	flagName = "DisableRendering",
@@ -4054,13 +4069,13 @@ MenuSection:createToggle({
 		FN.applyRendering(enabled)
 	end,
 })
-MenuSection:createKeybind({
+SettingsSection:createKeybind({
 	Name = "Menu Keybind",
 	flagName = "MenuKeybind",
 	Flag = "LeftAlt",
 	Callback = function() end,
 })
-MenuSection:createButton({
+SettingsSection:createButton({
 	Name = "Unload",
 	Callback = function()
 		if Library.Unload then
@@ -4069,8 +4084,9 @@ MenuSection:createButton({
 	end,
 })
 
--- Settings - Performance
-PerformanceSection:createToggle({
+-- Settings: Performance
+header(SettingsSection, "Performance")
+SettingsSection:createToggle({
 	Name = "FPS Boost",
 	Flag = false,
 	flagName = "FpsBoost",
@@ -4078,13 +4094,13 @@ PerformanceSection:createToggle({
 		FN.applyFpsBoost(enabled)
 	end,
 })
-PerformanceSection:createToggle({
+SettingsSection:createToggle({
 	Name = "Auto Delete Own Pets",
 	Flag = false,
 	flagName = "AutoDeleteOwnPets",
 	Callback = function() end,
 })
-PerformanceSection:createSlider({
+SettingsSection:createSlider({
 	Name = "FPS Cap",
 	flagName = "FpsCap",
 	value = 60,
