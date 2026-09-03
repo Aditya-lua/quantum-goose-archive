@@ -276,8 +276,22 @@ if identifyexecutor then
 	end)
 end
 
--- UI library (single source)
-local Library = loadstring(game:HttpGet("https://versusairlines.top/scripts/NewLibrary.lua"))()
+-- UI library (single source, retried)
+local librarySource = nil
+for _ = 1, 3 do
+	local ok, src = pcall(function()
+		return game:HttpGet("https://versusairlines.top/scripts/NewLibrary.lua")
+	end)
+	if ok and typeof(src) == "string" and #src > 1000 then
+		librarySource = src
+		break
+	end
+	task.wait(2)
+end
+if not librarySource then
+	error("Failed to load the UI library")
+end
+local Library = loadstring(librarySource)()
 
 local FN = {}
 
