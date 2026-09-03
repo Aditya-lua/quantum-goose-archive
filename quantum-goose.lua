@@ -357,7 +357,7 @@ function FN.countTable(t)
 	end
 	local n = 0
 	for _ in pairs(t) do
-		n = 		n + 1
+		n = n + 1
 	end
 	return n
 end
@@ -424,8 +424,8 @@ function FN.formatNumber(n)
 	local suffixes = { "", "K", "M", "B", "T", "Qa", "Qi" }
 	local i = 1
 	while n >= 1000 and i < #suffixes do
-		n = 		n / 1000
-		i = 		i + 1
+		n = n / 1000
+		i = i + 1
 	end
 	if i == 1 then
 		return string.format("%d", n)
@@ -924,6 +924,20 @@ function FN.getCarryState()
 			end
 		end
 	end
+	-- held egg/pet tool fallback (tools carry the UID attribute)
+	local containers = { LocalPlayer.Character, LocalPlayer:FindFirstChildOfClass("Backpack") }
+	for _, container in ipairs(containers) do
+		if container then
+			for _, child in ipairs(container:GetChildren()) do
+				if child:IsA("Tool") then
+					local uid = child:GetAttribute("UID")
+					if typeof(uid) == "string" and uid ~= "" then
+						return { IsCarrying = true, Uid = uid }
+					end
+				end
+			end
+		end
+	end
 	return { IsCarrying = false }
 end
 
@@ -1325,7 +1339,14 @@ end
 
 -- carry / place / drop / hatch / equip
 function FN.tryCarryEgg(target)
-	local uid = typeof(target) == "table" and target.Uid or target
+	local uid
+	if typeof(target) == "Instance" then
+		uid = target.Name
+	elseif typeof(target) == "table" then
+		uid = target.Uid
+	else
+		uid = target
+	end
 	if typeof(uid) ~= "string" or uid == "" then
 		return false
 	end
@@ -1484,7 +1505,7 @@ function FN.runAutoUpgrades()
 	end
 	if types.Treadmill then
 		local level = tonumber(save.TreadmillUpgradeLevel) or 0
-		while true do
+		for _ = 1, 5 do
 			local nextLevel = TreadmillData.GetByUpgradeLevel(level + 1)
 			if not nextLevel then
 				break
@@ -1495,8 +1516,11 @@ function FN.runAutoUpgrades()
 			end
 			FN.netCall("Treadmills", "REQUEST_UPGRADE", nextLevel._id)
 			task.wait(0.35)
-			level = 			level + 1
-			save = FN.getSave() or save
+			level = level + 1
+			save = FN.getSave()
+			if not save then
+				break
+			end
 		end
 	end
 end
@@ -1790,7 +1814,7 @@ function FN.deleteOwnPetRenders()
 					pcall(function()
 						child:Destroy()
 					end)
-					removed = 					removed + 1
+					removed = removed + 1
 				end
 			end
 		end
@@ -2164,8 +2188,9 @@ function FN.pickStealTarget()
 			uidMap[rec.Uid] = rec
 		end
 	end
-	if EggSlotsClient then
-		slots = EggSlotsClient:GetChildren()
+	local slotsClient = EggSlotsClient or Workspace:FindFirstChild("AreaEggSlotsClient")
+	if slotsClient then
+		slots = slotsClient:GetChildren()
 	else
 		return nil
 	end
@@ -2465,7 +2490,8 @@ function FN.collectGuardEsp()
 					local pos = part.Position
 					if FN.withinEspRange(pos) then
 						local color = state == "Chasing" and Color3.fromRGB(255, 90, 90) or Color3.fromRGB(190, 200, 215)
-						FN.drawEspAt("guard_" .. child:GetAttribute("GuardId") or child.Name .. "_" .. tostring(pos.X), pos, string.format("Guard\n%s", tostring(state or "?")), color, child)
+						local guardName = tostring(child:GetAttribute("GuardId") or (child.Name .. "_" .. tostring(pos.X)))
+						FN.drawEspAt("guard_" .. guardName, pos, string.format("Guard\n%s", tostring(state or "?")), color, child)
 					end
 				end
 			end
@@ -2491,7 +2517,8 @@ function FN.collectPetEsp()
 							end)
 							local name = child:GetAttribute("Name") or child:GetAttribute("DisplayName") or child.Name
 							local color = mine and Color3.fromRGB(125, 212, 127) or Color3.fromRGB(190, 200, 215)
-							FN.drawEspAt("pet_" .. child:GetAttribute("OwnerUserId") or child.Name, pos, tostring(name or "Pet"), color, child)
+							local petOwner = child:GetAttribute("OwnerUserId")
+							FN.drawEspAt("pet_" .. tostring(petOwner or child.Name), pos, tostring(name or "Pet"), color, child)
 						end
 					end
 				end
@@ -2639,7 +2666,7 @@ function FN.rememberVisited(jobId)
 	end
 	local n = 0
 	for _ in pairs(visitedServers) do
-		n = 		n + 1
+		n = n + 1
 	end
 	if n >= 300 then
 		visitedServers = {}
@@ -2840,7 +2867,7 @@ function FN.buildSummaryEmbed()
 				break
 			end
 			table.insert(lines, line)
-			total = 			total + #line + 1
+			total = total + #line + 1
 			if i >= 15 then
 				break
 			end
@@ -2932,19 +2959,19 @@ function FN.trackWebhookEvents()
 		for uid in pairs(save.Inventory) do
 			if not knownPetUids[uid] then
 				knownPetUids[uid] = true
-				petsSinceSummary = 				petsSinceSummary + 1
+				petsSinceSummary = petsSinceSummary + 1
 			end
 		end
 	end
 	-- rebirths
 	local rebirth = tonumber(save.Rebirth) or 0
 	if rebirth > lastRebirth then
-		rebirthsSinceSummary = 		rebirthsSinceSummary + rebirth - lastRebirth
+		rebirthsSinceSummary = rebirthsSinceSummary + rebirth - lastRebirth
 	end
 	lastRebirth = rebirth
 	-- steals
 	local delta = math.max(0, stolenCount - lastStealCount)
-	hopsSinceSummary = 	hopsSinceSummary + delta
+	hopsSinceSummary = hopsSinceSummary + delta
 	lastStealCount = stolenCount
 	-- egg spawns
 	local stillPresent = {}
@@ -2957,7 +2984,7 @@ function FN.trackWebhookEvents()
 				local rarity = FN.resolveRarity(rec.AssetCategory)
 				if FN.spawnPassesFilter(rarity) then
 					table.insert(spawnedEggs, {
-						rank = RARITY_RANK[rarity] or 0,
+						rank = (rarity and RARITY_RANK[rarity]) or 0,
 						order = #spawnedEggs + 1,
 						text = string.format("**%s** `%s` in %s", FN.assetName(rec.AssetCategory), tostring(rarity or "?"), tostring(rec.AreaId or "?")),
 					})
@@ -3197,7 +3224,7 @@ end
 local loopRenderOverlay = function()
 	while not (Library and Library.Unloaded) do
 		task.wait(1)
-		if FN.isOn("DisableRendering") then
+		if FN.isOn("DisableRendering") or FN.isOn("AutoHideUi") then
 			pcall(FN.updateRenderOverlay)
 		elseif overlayGui then
 			pcall(FN.destroyRenderOverlay)
@@ -3210,6 +3237,9 @@ local antiPauseConn = nil
 local antiPauseTick = 0
 
 function FN.applyAntiGameplayPause(enable)
+	if enable and antiPauseConn then
+		return
+	end
 	if antiPauseConn then
 		antiPauseConn:Disconnect()
 		antiPauseConn = nil
@@ -3218,7 +3248,7 @@ function FN.applyAntiGameplayPause(enable)
 		return
 	end
 	antiPauseConn = RunService.Heartbeat:Connect(function()
-		antiPauseTick = 		antiPauseTick + 1
+		antiPauseTick = antiPauseTick + 1
 		if antiPauseTick % 600 == 0 then
 			task.spawn(function()
 				pcall(function()
@@ -3294,7 +3324,7 @@ local function detectionCounter()
 									warn(("[Bypass] Blocked detection %s %s"):format(tostring(k), tostring(v)))
 								end })
 							end)
-							count = 							count + 1
+							count = count + 1
 						end
 					end
 				end
@@ -3355,11 +3385,7 @@ local Visual = ui:CreateSection("👁️ Visual")
 local Webhook = ui:CreateSection("📡 Webhook")
 local Settings = ui:CreateSection("⚙️ Settings")
 
-local SessionLabel = Home:createLabel({
-	Name = "Session time: 0s",
-	Special = true,
-	flagName = "saeSessionTime",
-})
+local SessionLabel = nil
 
 -- Home: Account
 header(Home, "Account")
@@ -3381,6 +3407,11 @@ Home:createLabel({
 Home:createLabel({
 	Name = "Server: " .. string.sub(tostring(game.JobId), 1, 18) .. "...",
 	Special = true,
+})
+SessionLabel = Home:createLabel({
+	Name = "Session time: 0s",
+	Special = true,
+	flagName = "saeSessionTime",
 })
 Home:createButton({
 	Name = "Copy Join Script (Job ID)",
@@ -4142,7 +4173,7 @@ local function onCarryChange(data)
 	local nowCarrying = data ~= nil and data.IsCarrying == true
 	if nowCarrying and not Carrying then
 		Carrying = true
-		stolenCount = 		stolenCount + 1
+		stolenCount = stolenCount + 1
 		if typeof(data.Uid) == "string" then
 			local rec = FN.findAreaEggRecord(data.Uid)
 			if rec then
@@ -4207,23 +4238,23 @@ local heartbeatConn = RunService.Heartbeat:Connect(function(dt)
 			local cam = WorkspaceRef.CurrentCamera
 			if cam then
 				if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-					dir = 					dir + cam.CFrame.LookVector
+					dir = dir + cam.CFrame.LookVector
 				end
 				if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-					dir = 					dir - cam.CFrame.LookVector
+					dir = dir - cam.CFrame.LookVector
 				end
 				if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-					dir = 					dir - cam.CFrame.RightVector
+					dir = dir - cam.CFrame.RightVector
 				end
 				if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-					dir = 					dir + cam.CFrame.RightVector
+					dir = dir + cam.CFrame.RightVector
 				end
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-				dir = 				dir + Vector3.new(0, 1, 0)
+				dir = dir + Vector3.new(0, 1, 0)
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-				dir = 				dir - Vector3.new(0, 1, 0)
+				dir = dir - Vector3.new(0, 1, 0)
 			end
 			if dir.Magnitude > 0 then
 				local speed = tonumber(FN.optionValue("FlySpeed", 60)) or 60
@@ -4453,11 +4484,13 @@ pcall(function()
 	if FN.isOn("AntiGameplayPause") then
 		FN.applyAntiGameplayPause(true)
 	end
-	if FN.isOn("DisableRendering") then
-		FN.applyRendering(true)
-	elseif FN.isOn("AutoHideUi") then
+end)
+pcall(function()
+	if FN.isOn("DisableRendering") or FN.isOn("AutoHideUi") then
 		FN.applyRendering(true)
 	end
+end)
+pcall(function()
 	if FN.isOn("FpsBoost") then
 		FN.applyFpsBoost(true)
 	end
@@ -4465,11 +4498,20 @@ pcall(function()
 	if typeof(cap) == "number" then
 		FN.applyFpsCap(cap)
 	end
+end)
+pcall(function()
 	if FN.stealingEnabled() then
 		FN.swapStealHumanoid()
 	end
-	pcall(detectionCounter)
 end)
+pcall(detectionCounter)
+if FN.isOn("AutoExecute") then
+	task.delay(3, function()
+		pcall(FN.runAutoClaimIndex)
+		pcall(FN.runClaimOfflineEarnings)
+		pcall(FN.runAutoClaimGroupReward)
+	end)
+end
 
 -- start all background loops
 task.spawn(loopCarryState)
