@@ -197,10 +197,10 @@ FuseKernel = ensureModule("FuseKernel", FuseKernel, { CalculateFusePrice = funct
 local AreasFolder = nil
 local GuardAreas = nil
 local EggSlotsClient = nil
-local EspFolder = Workspace:FindFirstChild("OuroborosEsp")
+local EspFolder = Workspace:FindFirstChild("SAEEsp")
 if not EspFolder then
 	EspFolder = Instance.new("Folder")
-	EspFolder.Name = "OuroborosEsp"
+	EspFolder.Name = "SAEEsp"
 	EspFolder.Parent = Workspace
 end
 pcall(function()
@@ -211,8 +211,6 @@ end)
 EggSlotsClient = Workspace:FindFirstChild("AreaEggSlotsClient")
 
 -- constants
-local DISCORD_URL = "https://discord.gg/ehKVq7pf7v"
-local RSCRIPTS_URL = "https://rscripts.net/@Ouroboros"
 local GAME_TITLE = "Steal an Egg"
 local ACCENT = "#e8a34d"
 local PLACE_ID = 8916037983
@@ -473,14 +471,6 @@ function FN.notify(msg)
 			Library:Notify(msg)
 		end)
 	end
-end
-
-function FN.copyDiscord()
-	FN.copyText(DISCORD_URL, "Copied Discord invite to clipboard")
-end
-
-function FN.copyRscripts()
-	FN.copyText(RSCRIPTS_URL, "Copied Rscripts profile to clipboard")
 end
 
 function FN.copyJoinScript()
@@ -1960,12 +1950,12 @@ function FN.swapStealHumanoid()
 		return
 	end
 	local stealing = FN.stealingEnabled()
-	local marked = hum:GetAttribute("OuroborosStealHum") == true
+	local marked = hum:GetAttribute("SAEStealHum") == true
 	if stealing and not marked then
-		hum:SetAttribute("OuroborosStealHum", true)
+		hum:SetAttribute("SAEStealHum", true)
 		hum.WalkSpeed = math.min(FN.stealSpeed(), 500)
 	elseif not stealing and marked then
-		hum:SetAttribute("OuroborosStealHum", false)
+		hum:SetAttribute("SAEStealHum", false)
 		hum.WalkSpeed = 16
 	end
 end
@@ -2796,7 +2786,7 @@ function FN.sendWebhookEmbed(embed, ping)
 	if not FN.isOn("WebhookEnabled") then
 		return false
 	end
-	local payload = { username = "Ouroboros Hub", embeds = { embed } }
+	local payload = { username = GAME_TITLE, embeds = { embed } }
 	if ping then
 		local mention = FN.webhookPing()
 		if mention then
@@ -2866,13 +2856,13 @@ function FN.buildSummaryEmbed()
 		table.insert(fields, FN.embedField(string.format("Eggs Spawned (%d)", #sorted), table.concat(lines, "\n"), false))
 	end
 	return {
-		author = { name = GAME_TITLE .. " | Ouroboros Hub" },
+		author = { name = GAME_TITLE },
 		title = "Session Summary",
 		description = string.format("**Player** `%s`\n**Server** `%s`\n**Runtime** `%s`",
 			LocalPlayer.Name, tostring(game.JobId), FN.formatElapsed(os.clock() - sessionStart)),
 		color = 5793266,
 		fields = fields,
-		footer = { text = "Ouroboros Hub" },
+		footer = { text = GAME_TITLE },
 		timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
 	}
 end
@@ -2975,11 +2965,11 @@ function FN.handleDisconnect(reason)
 	disconnectHandled = true
 	if FN.isOn("WebhookDisconnectAlerts") then
 		FN.sendWebhookEmbed({
-			author = { name = GAME_TITLE .. " | Ouroboros Hub" },
+			author = { name = GAME_TITLE },
 			title = "Disconnected",
 			description = string.format("**Player** `%s`\n**Reason** %s", LocalPlayer.Name, tostring(reason or "Connection lost")),
 			color = 15158332,
-			footer = { text = "Ouroboros Hub" },
+			footer = { text = GAME_TITLE },
 			timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
 		}, true)
 	end
@@ -3077,7 +3067,7 @@ function FN.applyRendering(enable)
 	if enable then
 		if playerGui then
 			for _, child in ipairs(playerGui:GetChildren()) do
-				if child.Visible and not child:GetAttribute("OuroborosOwn") then
+				if child.Visible and not child:GetAttribute("SAEOwn") then
 					table.insert(hiddenGuis, { gui = child, visible = child.Visible })
 					child.Visible = false
 				end
@@ -3102,11 +3092,11 @@ function FN.buildRenderOverlay()
 		return
 	end
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "OuroborosRenderInfo"
+	gui.Name = "SAERenderInfo"
 	gui.IgnoreGuiInset = true
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 500
-	gui:SetAttribute("OuroborosOwn", true)
+	gui:SetAttribute("SAEOwn", true)
 	local parent
 	if typeof(gethui) == "function" then
 		parent = gethui()
@@ -3127,18 +3117,8 @@ function FN.buildRenderOverlay()
 	title.Font = Enum.Font.GothamMedium
 	title.TextSize = 24
 	title.TextColor3 = Color3.fromRGB(226, 230, 238)
-	title.Text = "Ouroboros Hub"
+	title.Text = "Steal An Egg"
 	title.Parent = frame
-	local link = Instance.new("TextLabel")
-	link.AnchorPoint = Vector2.new(0.5, 0)
-	link.Position = UDim2.new(0.5, 0, 0.5, 6)
-	link.Size = UDim2.fromOffset(400, 22)
-	link.BackgroundTransparency = 1
-	link.Font = Enum.Font.Code
-	link.TextSize = 15
-	link.TextColor3 = Color3.fromRGB(110, 193, 255)
-	link.Text = DISCORD_URL
-	link.Parent = frame
 	local statsFrame = Instance.new("Frame")
 	statsFrame.AnchorPoint = Vector2.new(0, 1)
 	statsFrame.Position = UDim2.new(0, 28, 1, -28)
@@ -3310,7 +3290,7 @@ local function detectionCounter()
 	return count
 end
 
--- UI (versus NewLibrary, Ouroboros layout, GAG2 pattern)
+-- UI (versus NewLibrary, 6-tab layout, GAG2 pattern)
 local function resolveUiParent()
 	local okHui, hui = pcall(function()
 		if type(gethui) == "function" then
@@ -3380,10 +3360,6 @@ InfoSection:createLabel({
 	Special = true,
 })
 InfoSection:createLabel({
-	Name = "Status: Keyless",
-	Special = true,
-})
-InfoSection:createLabel({
 	Name = "Executor: " .. executorName,
 	Special = true,
 })
@@ -3400,28 +3376,6 @@ InfoSection:createButton({
 	Callback = function()
 		FN.copyJoinScript()
 	end,
-})
-InfoSection:createButton({
-	Name = "Join Discord To Make Money",
-	Callback = function()
-		FN.copyDiscord()
-	end,
-})
-InfoSection:createButton({
-	Name = "Join Discord For Keyless Scripts",
-	Callback = function()
-		FN.copyDiscord()
-	end,
-})
-InfoSection:createButton({
-	Name = "Copy Rscripts Profile",
-	Callback = function()
-		FN.copyRscripts()
-	end,
-})
-InfoSection:createLabel({
-	Name = "Every script in the hub is keyless.",
-	Special = true,
 })
 
 -- Eggs - Steal
@@ -4256,7 +4210,7 @@ local loopGroundLock = function()
 		if FN.stealingEnabled() then
 			local root = FN.getRoot()
 			local hum = FN.getHumanoid()
-			if root and hum and hum:GetAttribute("OuroborosStealHum") == true then
+			if root and hum and hum:GetAttribute("SAEStealHum") == true then
 				local laneY = FN.getLaneY()
 				if root.Position.Y > laneY + 12 then
 					local gy = FN.groundedY(root.Position.X, root.Position.Z)
