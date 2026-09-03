@@ -295,24 +295,36 @@ local Library = loadstring(librarySource)()
 
 local FN = {}
 
--- core helpers
+-- core helpers (versus NewLibrary stores every element value in Library.Flags[flagName])
 function FN.isOn(name)
-	if not Library then
+	local flags = Library and Library.Flags
+	if type(flags) ~= "table" then
 		return false
 	end
-	local toggle = Library.Toggles[name]
-	if toggle == nil then
-		return false
-	end
-	return toggle.Value == true
+	return flags[name] == true
 end
 
 function FN.optionValue(name, fallback)
-	local option = Library and Library.Options and Library.Options[name]
-	if option == nil then
+	local flags = Library and Library.Flags
+	if type(flags) ~= "table" then
 		return fallback
 	end
-	return option.Value
+	local value = flags[name]
+	if value == nil then
+		return fallback
+	end
+	return value
+end
+
+function FN.firstSelected(name, fallback)
+	local raw = FN.optionValue(name, nil)
+	if typeof(raw) == "table" then
+		return raw[1] or fallback
+	end
+	if typeof(raw) == "string" and raw ~= "" then
+		return raw
+	end
+	return fallback
 end
 
 function FN.multiSelected(name)
@@ -340,15 +352,6 @@ function FN.selectionAllows(name, value)
 		return true
 	end
 	return FN.multiSelected(name)[value] == true
-end
-
-function FN.configElement(typ, idx)
-	local bag = (typ == "Toggle") and Library.Toggles or Library.Options
-	local el = bag and bag[idx]
-	if type(el) == "table" and el.Type == typ then
-		return el
-	end
-	return nil
 end
 
 function FN.countTable(t)
@@ -466,25 +469,79 @@ function FN.embedField(name, value, inline)
 	return { name = name, value = value, inline = inline ~= false }
 end
 
+local toastGui = nil
+
+function FN.toast(msg)
+	local ok = pcall(function()
+		if not toastGui or not toastGui.Parent then
+			local gui = Instance.new("ScreenGui")
+			gui.Name = "SAEToasts"
+			gui.ResetOnSpawn = false
+			gui.DisplayOrder = 2147483000
+			gui.IgnoreGuiInset = true
+			gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+			gui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5)
+			toastGui = gui
+		end
+		for _, old in ipairs(toastGui:GetChildren()) do
+			pcall(function()
+				old:Destroy()
+			end)
+		end
+		local label = Instance.new("TextLabel")
+		label.Name = "Toast"
+		label.Size = UDim2.new(0, 340, 0, 34)
+		label.Position = UDim2.new(0.5, -170, 0, 10)
+		label.BackgroundColor3 = Color3.fromRGB(28, 31, 36)
+		label.BackgroundTransparency = 0
+		label.BorderSizePixel = 0
+		label.Font = Enum.Font.GothamMedium
+		label.TextSize = 14
+		label.TextXAlignment = Enum.TextXAlignment.Center
+		label.TextYAlignment = Enum.TextYAlignment.Center
+		label.TextWrapped = true
+		label.Text = tostring(msg)
+		label.TextColor3 = Color3.fromRGB(235, 240, 250)
+		label.TextStrokeTransparency = 0.25
+		label.ZIndex = 1
+		label.Parent = toastGui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = label
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(82, 171, 255)
+		stroke.Thickness = 1.5
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.Parent = label
+		task.spawn(function()
+			task.wait(2.4)
+			for _ = 1, 10 do
+				label.TextTransparency = label.TextTransparency + 0.1
+				label.BackgroundTransparency = label.BackgroundTransparency + 0.1
+				stroke.Transparency = stroke.Transparency + 0.1
+				task.wait(0.08)
+			end
+			pcall(function()
+				label:Destroy()
+			end)
+		end)
+	end)
+	if not ok then
+		warn("toast failed: " .. tostring(ok))
+	end
+end
+
+function FN.notify(msg)
+	FN.toast(msg)
+end
+
 function FN.copyText(text, msg)
 	if setclipboard then
 		setclipboard(text)
 	elseif toclipboard then
 		toclipboard(text)
 	end
-	if Library and Library.Notify then
-		pcall(function()
-			Library:Notify(msg)
-		end)
-	end
-end
-
-function FN.notify(msg)
-	if Library and Library.Notify then
-		pcall(function()
-			Library:Notify(msg)
-		end)
-	end
+	FN.notify(msg)
 end
 
 function FN.copyJoinScript()
@@ -533,7 +590,6 @@ pcall(function()
 		table.sort(trailNames)
 	end
 end)
-
 -- world geometry
 function FN.getZoneModel(name)
 	if not GuardAreas then
@@ -868,7 +924,6 @@ function FN.resolveWaypoint(name)
 	end
 	return nil
 end
-
 -- area egg snapshot
 function FN.getAreaEggs()
 	local snapshot = EggStateModule.GetAreaEggSnapshot()
@@ -1254,7 +1309,7 @@ function FN.pickFuseGroup()
 	if not keepPerCategory then
 		keepPerCategory = 0
 	end
-	local target = FN.optionValue("FuseTarget", "Highest Rarity")
+	local target = FN.firstSelected("FuseTarget", "Highest Rarity")
 	local bestKey, bestScore = nil, -math.huge
 	for key, list in pairs(groups) do
 		table.sort(list, function(a, b)
@@ -1286,7 +1341,6 @@ function FN.pickFuseGroup()
 	end
 	return chosen
 end
-
 -- remote resolver: Shared.Remotes wrapper first, then Packages.Networking RF/<Group>/<Name>
 local function findRemote(group, name)
 	if typeof(Remotes) == "table" then
@@ -1824,7 +1878,6 @@ function FN.deleteOwnPetRenders()
 	sweep(Workspace:FindFirstChild("Plots"))
 	return removed
 end
-
 -- movement: raw snaps for steal/return (1:1), glide for long travel
 function FN.rawTeleport(pos)
 	local root = FN.getRoot()
@@ -2163,7 +2216,6 @@ function FN.stopTreadmillTraining()
 		end
 	end
 end
-
 -- core tasks
 function FN.runAutoSteal()
 	if FN.isCarrying() then
@@ -2196,7 +2248,7 @@ function FN.pickStealTarget()
 	end
 	local stealAll = FN.isOn("AutoStealAll")
 	local root = FN.getRoot()
-	local priority = FN.optionValue("StealPriority", "Rarest")
+	local priority = FN.firstSelected("StealPriority", "Rarest")
 	local best, bestScore = nil, -math.huge
 	for _, slot in ipairs(slots) do
 		local rec = uidMap[slot.Name]
@@ -2237,10 +2289,7 @@ function FN.priorityOrder()
 	local ordered = {}
 	local seen = {}
 	for _, slotName in ipairs(PRIORITY_SLOTS) do
-		local value = FN.optionValue(slotName, nil)
-		if typeof(value) == "number" then
-			value = TASK_NAMES[value]
-		end
+		local value = FN.firstSelected(slotName, nil)
 		if typeof(value) == "string" and TASK_LOOKUP[value] and not seen[value] then
 			seen[value] = true
 			table.insert(ordered, value)
@@ -2329,7 +2378,6 @@ local loopStealTravel = function()
 	end
 end
 end
-
 -- ESP system
 local espEntries = {}
 local espAlive = {}
@@ -2622,7 +2670,6 @@ local loopEsp = function()
 		end
 	end
 end
-
 -- http
 function FN.httpPost(payload)
 	local url = FN.optionValue("WebhookUrl", "")
@@ -2780,7 +2827,7 @@ function FN.runServerHop()
 	if FN.isCarrying() then
 		return
 	end
-	local mode = FN.optionValue("HopMode", HOP_MODES[1])
+	local mode = FN.firstSelected("HopMode", HOP_MODES[1])
 	local value = tonumber(FN.optionValue("HopValue", 15))
 	if not value then
 		value = 15
@@ -3057,7 +3104,6 @@ local loopAntiPause = function()
 		end
 	end
 end
-
 -- fps
 local fpsBoostOn = false
 
@@ -3333,7 +3379,6 @@ local function detectionCounter()
 	end
 	return count
 end
-
 -- UI (versus NewLibrary, GAG2 pattern: few emoji tabs + Special label separators)
 local function resolveUiParent()
 	local okHui, hui = pcall(function()
@@ -3355,6 +3400,17 @@ local ui = Library:Setup({
 	Location = resolveUiParent(),
 	OpenCloseLocation = "Top Center",
 })
+
+task.defer(function()
+	local ok = pcall(function()
+		local gui = Library and Library.UI
+		local button = gui and gui:FindFirstChild("OpenCloseButton")
+		local title = button and button:FindFirstChild("Title")
+		if title then
+			title.Text = GAME_TITLE
+		end
+	end)
+end)
 
 local function setLabelText(ctrl, text)
 	if not ctrl then
@@ -3450,8 +3506,9 @@ Farm:createDropdown({
 Farm:createDropdown({
 	Name = "Target Priority",
 	flagName = "StealPriority",
-	Flag = "Rarest",
+	Flag = { "Rarest" },
 	List = { "Rarest", "Nearest", "Furthest", "Biggest Size" },
+	multi = true,
 	Callback = function() end,
 })
 Farm:createToggle({
@@ -3584,8 +3641,9 @@ Pets:createDropdown({
 Pets:createDropdown({
 	Name = "Pick Group By",
 	flagName = "FuseTarget",
-	Flag = "Highest Rarity",
+	Flag = { "Highest Rarity" },
 	List = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" },
+	multi = true,
 	Callback = function() end,
 })
 Pets:createToggle({
@@ -3810,8 +3868,9 @@ Hop:createToggle({
 Hop:createDropdown({
 	Name = "Hop When",
 	flagName = "HopMode",
-	Flag = HOP_MODES[1],
+	Flag = { HOP_MODES[1] },
 	List = HOP_MODES,
+	multi = true,
 	Callback = function() end,
 })
 Hop:createSlider({
@@ -3837,29 +3896,33 @@ header(Hop, "Task Order")
 Hop:createDropdown({
 	Name = "Priority 1",
 	flagName = "PrioritySlot1",
-	Flag = "Auto Steal Egg",
+	Flag = {default},
 	List = TASK_NAMES,
+	multi = true,
 	Callback = function() end,
 })
 Hop:createDropdown({
 	Name = "Priority 2",
 	flagName = "PrioritySlot2",
-	Flag = "Auto Place Egg",
+	Flag = {default},
 	List = TASK_NAMES,
+	multi = true,
 	Callback = function() end,
 })
 Hop:createDropdown({
 	Name = "Priority 3",
 	flagName = "PrioritySlot3",
-	Flag = "Auto Hatch",
+	Flag = {default},
 	List = TASK_NAMES,
+	multi = true,
 	Callback = function() end,
 })
 Hop:createDropdown({
 	Name = "Priority 4",
 	flagName = "PrioritySlot4",
-	Flag = "Auto Treadmill",
+	Flag = {default},
 	List = TASK_NAMES,
+	multi = true,
 	Callback = function() end,
 })
 
@@ -3985,15 +4048,16 @@ end
 Visual:createDropdown({
 	Name = "Waypoint",
 	flagName = "WaypointTarget",
-	Flag = "Base",
+	Flag = { "Base" },
 	List = WAYPOINT_VALUES,
+	multi = true,
 	Callback = function() end,
 })
 Visual:createButton({
 	Name = "Teleport To Waypoint",
 	Callback = function()
 		task.spawn(function()
-			local dest = FN.resolveWaypoint(FN.optionValue("WaypointTarget", nil))
+			local dest = FN.resolveWaypoint(FN.firstSelected("WaypointTarget", nil))
 			if not dest then
 				FN.notify("That waypoint is not available right now")
 				return
@@ -4116,9 +4180,9 @@ Settings:createKeybind({
 Settings:createButton({
 	Name = "Unload",
 	Callback = function()
-		if Library.Unload then
-			Library:Unload()
-		end
+		task.spawn(function()
+			pcall(FN.unload)
+		end)
 	end,
 })
 
@@ -4148,7 +4212,6 @@ Settings:createSlider({
 		FN.applyFpsCap(value)
 	end,
 })
-
 -- carry state (poll the egg state module; the decompile's connection was lost)
 local function recordObtainedEgg(rec)
 	if #obtainedEggLines >= 100 then
@@ -4444,39 +4507,68 @@ local loopSessionTimer = function()
 end
 
 -- afk input tracking
-UserInputService.InputChanged:Connect(function(input)
+local afkInputConn = UserInputService.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Gamepad1 then
 		lastInputTick = tick()
 	end
 end)
 
+-- menu keybind (toggles the library window through its own open/close button)
+local menuKeyConn = UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then
+		return
+	end
+	if Library and Library._capturingKeybind == true then
+		return
+	end
+	if UserInputService:GetFocusedTextBox() then
+		return
+	end
+	local keyName = FN.optionValue("MenuKeybind", "LeftAlt")
+	local keyCode = Enum.KeyCode[keyName]
+	if not keyCode or input.KeyCode ~= keyCode then
+		return
+	end
+	pcall(function()
+		local gui = Library and Library.UI
+		local button = gui and gui:FindFirstChild("OpenCloseButton")
+		if button then
+			button:Activate()
+		end
+	end)
+end)
+
 -- respawn: restore humanoid state
-LocalPlayer.CharacterAdded:Connect(function()
+local characterConn = LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(1)
 	FN.swapStealHumanoid()
 end)
 
 -- leaderstats money
+local statsConns = {}
 pcall(function()
 	local function watchStats(stats)
 		if not stats then
 			return
 		end
 		for _, child in ipairs(stats:GetChildren()) do
-			pcall(function()
-				child:GetPropertyChangedSignal("Value"):Connect(function()
+			local ok, conn = pcall(function()
+				return child:GetPropertyChangedSignal("Value"):Connect(function()
 					moneyDisplay = child.Value
 				end)
 			end)
+			if ok and conn then
+				table.insert(statsConns, conn)
+			end
 		end
 	end
 	watchStats(LocalPlayer:FindFirstChild("LeaderStats"))
-	LocalPlayer.ChildAdded:Connect(function(child)
+	table.insert(statsConns, LocalPlayer.ChildAdded:Connect(function(child)
 		if child.Name == "LeaderStats" then
 			task.wait(0.5)
 			watchStats(child)
 		end
-	end)
+	end))
 end)
 
 -- boot: apply state for toggles that were already ON (library callbacks fire on click only)
@@ -4513,6 +4605,39 @@ if FN.isOn("AutoExecute") then
 	end)
 end
 
+-- unload (the library exposes no unload API: stop loops, cut connections, destroy the window)
+function FN.unload()
+	Library.Unloaded = true
+	local function cut(conn)
+		pcall(function()
+			if conn then
+				conn:Disconnect()
+			end
+		end)
+	end
+	cut(heartbeatConn)
+	cut(afkInputConn)
+	cut(menuKeyConn)
+	cut(characterConn)
+	for _, conn in ipairs(statsConns) do
+		cut(conn)
+	end
+	pcall(function()
+		FN.applyAntiGameplayPause(false)
+	end)
+	pcall(function()
+		if Library.CleanupConnections then
+			Library:CleanupConnections()
+		end
+	end)
+	pcall(function()
+		if Library.UI and Library.UI.Parent then
+			Library.UI:Destroy()
+		end
+	end)
+	FN.toast("Unloaded")
+end
+
 -- start all background loops
 task.spawn(loopCarryState)
 task.spawn(loopStealTravel)
@@ -4539,4 +4664,3 @@ task.spawn(loopRenderOverlay)
 task.spawn(loopMiscD)
 task.spawn(loopAntiAfk)
 task.spawn(loopSessionTimer)
-
