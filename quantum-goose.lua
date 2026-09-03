@@ -3401,17 +3401,6 @@ local ui = Library:Setup({
 	OpenCloseLocation = "Top Center",
 })
 
-task.defer(function()
-	local ok = pcall(function()
-		local gui = Library and Library.UI
-		local button = gui and gui:FindFirstChild("OpenCloseButton")
-		local title = button and button:FindFirstChild("Title")
-		if title then
-			title.Text = GAME_TITLE
-		end
-	end)
-end)
-
 local function setLabelText(ctrl, text)
 	if not ctrl then
 		return
