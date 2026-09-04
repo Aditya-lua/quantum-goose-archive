@@ -225,7 +225,7 @@ EggSlotsClient = Workspace:FindFirstChild("AreaEggSlotsClient")
 -- constants
 local GAME_TITLE = "Steal an Egg"
 local ACCENT = "#e8a34d"
-local PLACE_ID = 8916037983
+local PLACE_ID = 107778070777162
 local OVERLAY_FIELDS = { "money", "speed", "pets", "eggs", "stolen", "session" }
 local HOP_MODES = { "No Matching Eggs", "Timed Interval", "After Steal Count" }
 local PRIORITY_SLOTS = { "PrioritySlot1", "PrioritySlot2", "PrioritySlot3", "PrioritySlot4" }
@@ -637,6 +637,7 @@ pcall(function()
 		table.sort(trailNames)
 	end
 end)
+
 -- world geometry
 function FN.getZoneModel(name)
 	if not GuardAreas then
@@ -906,7 +907,7 @@ function FN.getSlotEggPosition(inst)
 end
 
 function FN.getEggPosition(rec)
-	local cf = rec.BottomCFrame or rec.BoundsCFrame
+	local cf = rec.BoundsCFrame or rec.BottomCFrame
 	if not cf then
 		return nil
 	end
@@ -1016,6 +1017,7 @@ function FN.resolveWaypoint(name)
 	end
 	return nil
 end
+
 -- area egg snapshot (live EggState: ReadFieldEggs -> { Records = { ... } })
 function FN.getAreaEggs()
 	local ok, snapshot = pcall(function()
@@ -1445,6 +1447,7 @@ function FN.pickFuseGroup()
 	end
 	return chosen
 end
+
 -- remote resolver: Shared.Remotes wrapper first, then Packages.Networking RF/<Group>/<Name>
 local function findRemote(group, name)
 	if typeof(Remotes) == "table" then
@@ -1476,6 +1479,10 @@ function FN.netCall(group, name, ...)
 	end
 	if r:IsA("RemoteEvent") then
 		local ok = pcall(r.FireServer, r, ...)
+		return ok
+	end
+	if r:IsA("RemoteFunction") then
+		local ok = pcall(r.InvokeServer, r, ...)
 		return ok
 	end
 	return false
@@ -1578,10 +1585,7 @@ function FN.holdUid(uid)
 end
 
 function FN.sellUid(uid)
-	if not FN.holdUid(uid) then
-		return false
-	end
-	local sold = FN.netCall("PetSatchel", "SellPet", { Uid = uid })
+	local sold = FN.netCall("PetSatchel", "SellPet", { uid })
 	if not sold then
 		sold = FN.netCall("PetSatchel", "SellPet", uid)
 	end
@@ -1612,14 +1616,11 @@ end
 
 -- economy tasks
 function FN.runAutoClaimIndex()
-	local ok = FN.netCall("Codex", "AskRedeemAll", {})
-	if not ok then
-		ok = FN.netCall("Codex", "AskRedeemAll")
-	end
+	FN.netCall("Codex", "AskRedeemAll")
 end
 
 function FN.runAutoClaimGroupReward()
-	FN.netCall("GroupPerk", "RedeemPerk", false)
+	FN.netCall("GroupPerk", "RedeemPerk", true)
 end
 
 function FN.runClaimOfflineEarnings()
@@ -1719,12 +1720,12 @@ function FN.runAutoEquipBest()
 		return
 	end
 	lastEquipAt = now
-	local equipped = FN.netCall("PenRoster", "ConfirmEquipBestBadge")
+	local equipped = FN.netCall("Haul", "WearBest")
 	if not equipped then
-		equipped = FN.netCall("Backpack", "EQUIP_BEST")
+		equipped = FN.netCall("PenRoster", "ConfirmEquipBestBadge")
 	end
 	if not equipped then
-		equipped = FN.netCall("Haul", "WearBest", {})
+		equipped = FN.netCall("Backpack", "EQUIP_BEST")
 	end
 end
 
@@ -1751,7 +1752,7 @@ function FN.runAutoEquipBestTrail()
 	end
 	local worn = FN.netInvoke("Trailwear", "AskWornSnapshot")
 	if typeof(worn) == "table" then
-		if worn[tostring(LocalPlayer.UserId)] == bestId then
+		if worn[LocalPlayer.UserId] == bestId or worn[tostring(LocalPlayer.UserId)] == bestId then
 			return
 		end
 	end
@@ -1920,39 +1921,25 @@ function FN.runAutoFusePets(manual)
 	if not group or #group < 3 then
 		return
 	end
-	local started = FN.netCall("Fusery", "BeginFuse")
-	if not started then
-		started = FN.netCall("Fusery", "BeginFuse", { group[1], group[2], group[3] })
-	end
-	if not started then
-		started = FN.netCall("Fusions", "FUSE_BY_ID", { group[1], group[2], group[3] })
-	end
-	if not started then
-		FN.notify("No fuse remote available")
-		return
-	end
+	local loadedAny = false
 	for _, uid in ipairs(group) do
 		local loaded = FN.netCall("Fusery", "LoadPet", uid)
-		if not loaded then
-			FN.netCall("Fusery", "LoadPet", { Uid = uid })
+		if loaded then
+			loadedAny = true
 		end
 		task.wait(0.3)
 	end
+	if not loadedAny then
+		FN.notify("No fuse remote available")
+		return
+	end
+	local started = FN.netCall("Fusery", "BeginFuse")
+	if not started then
+		return
+	end
 	if FN.isOn("FuseAutoReveal") then
-		task.wait(1.5)
+		task.wait(2)
 		local revealed = FN.netCall("Fusery", "FinishReveal")
-		if not revealed then
-			for _, args in ipairs({ { group[1] }, { group[1], group[2], group[3] }, {} }) do
-				if FN.netCall("Fusions", "REVEAL_FUSE", table.unpack(args)) then
-					revealed = true
-					break
-				end
-				if FN.netCall("Fusery", "CompleteFuse", table.unpack(args)) then
-					revealed = true
-					break
-				end
-			end
-		end
 		if not revealed then
 			local gui = LocalPlayer:FindFirstChild("PlayerGui")
 			if gui then
@@ -1995,6 +1982,7 @@ function FN.deleteOwnPetRenders()
 	sweep(Workspace:FindFirstChild("Plots"))
 	return removed
 end
+
 -- movement: raw snaps for steal/return (1:1), glide for long travel
 function FN.rawTeleport(pos)
 	local root = FN.getRoot()
@@ -2344,6 +2332,7 @@ function FN.stopTreadmillTraining()
 		end
 	end
 end
+
 -- core tasks
 function FN.runAutoSteal()
 	if FN.isCarrying() then
@@ -2496,6 +2485,7 @@ local loopStealTravel = function()
 	end
 end
 end
+
 -- ESP system
 local espEntries = {}
 local espAlive = {}
@@ -2626,7 +2616,7 @@ function FN.collectEggEsp()
 				line = string.format("%s\nDropped", line)
 			end
 			local pos = nil
-			local cf = rec.BottomCFrame or rec.BoundsCFrame
+			local cf = rec.BoundsCFrame or rec.BottomCFrame
 			if cf then
 				pos = cf.Position
 			end
@@ -2788,6 +2778,7 @@ local loopEsp = function()
 		end
 	end
 end
+
 -- http
 function FN.httpPost(payload)
 	local url = FN.optionValue("WebhookUrl", "")
@@ -3222,6 +3213,7 @@ local loopAntiPause = function()
 		end
 	end
 end
+
 -- fps
 local fpsBoostOn = false
 
@@ -3497,6 +3489,7 @@ local function detectionCounter()
 	end
 	return count
 end
+
 -- UI (versus NewLibrary, GAG2 pattern: few emoji tabs + Special label separators)
 local function resolveUiParent()
 	local okHui, hui = pcall(function()
@@ -4319,6 +4312,7 @@ Settings:createSlider({
 		FN.applyFpsCap(value)
 	end,
 })
+
 -- carry state (poll the egg state module; the decompile's connection was lost)
 local function recordObtainedEgg(rec)
 	if #obtainedEggLines >= 100 then
@@ -4771,3 +4765,4 @@ task.spawn(loopRenderOverlay)
 task.spawn(loopMiscD)
 task.spawn(loopAntiAfk)
 task.spawn(loopSessionTimer)
+
