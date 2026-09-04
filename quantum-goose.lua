@@ -174,24 +174,36 @@ local function ensureModule(name, mod, stub)
 end
 SaveModule = ensureModule("Save", SaveModule, { Get = function() return nil end })
 EggStateModule = ensureModule("EggState", EggStateModule, {
-	GetAreaEggSnapshot = function() return nil end,
-	RequestAreaEggSnapshot = function() end,
-	RequestDropHeldAreaEgg = function() end,
+	ReadFieldEggs = function() return nil end,
+	ReadFieldEgg = function() return nil end,
+	ReadOwnedEggs = function() return nil end,
+	CarryFieldEgg = function() end,
 	DropFieldEgg = function() end,
+	PlantEgg = function() end,
 })
 PlotStateModule = ensureModule("PlotState", PlotStateModule, {
-	GetRespawnPointCFrame = function() end,
-	GetPlotData = function() end,
-	IsWorldPositionWithinLocalPlotBounds = function() return false end,
+	FindRespawnCFrame = function() end,
+	ResolvePlot = function() return nil end,
+	ContainsLocalPoint = function() return false end,
 })
-AssetRoster = ensureModule("AssetRoster", AssetRoster, { Directory = {} })
+AssetRoster = ensureModule("AssetRoster", AssetRoster, {
+	ReadSnapshot = function() return nil end,
+	Directory = {},
+})
 BaseUpgradeModule = ensureModule("BaseUpgrade", BaseUpgradeModule, {
 	IsNextTierAffordable = function() return false end,
 	PurchaseNextTier = function() end,
 })
 TreadmillData = ensureModule("Treadmills", TreadmillData, { GetByUpgradeLevel = function() end })
-AssetItems = ensureModule("AssetItems", AssetItems, { Deserialize = function() end })
-FuseKernel = ensureModule("FuseKernel", FuseKernel, { CalculateFusePrice = function() end })
+AssetItems = ensureModule("AssetItems", AssetItems, {
+	Decode = function() return nil end,
+	Deserialize = function() return nil end,
+	RarityRankForCategory = function() return nil end,
+})
+FuseKernel = ensureModule("FuseKernel", FuseKernel, {
+	PriceFor = function() return nil end,
+	CalculateFusePrice = function() return nil end,
+})
 
 -- world folders
 local AreasFolder = nil
@@ -223,7 +235,7 @@ local RARITY_RANK = {
 	Mythic = 6, Cosmic = 7, Secret = 8, Eternal = 9, Divine = 10,
 }
 local RARITY_NAMES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine" }
-local AREA_NAMES = { "Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic" }
+local AREA_NAMES = { "Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic", "Cherry Blossom", "Titan Temple" }
 local MUTATION_NAMES = { "Golden", "Rainbow", "Silver" }
 local STEAL_TIMING = { GrabDelay = 0.55, ReturnPace = 0.12, ArriveDistance = 1.35, MoveTimeout = 14 }
 local RETURN_SNAP_PACE = 0.08
@@ -395,20 +407,55 @@ function FN.isCarrying()
 	return Carrying
 end
 
+local rosterCache = nil
+function FN.rosterLookup(category)
+	if typeof(category) ~= "string" then
+		return nil
+	end
+	if rosterCache == nil then
+		local ok, snap = pcall(function()
+			if type(AssetRoster.ReadSnapshot) == "function" then
+				return AssetRoster.ReadSnapshot()
+			end
+			return nil
+		end)
+		if ok and typeof(snap) == "table" then
+			rosterCache = snap
+		end
+	end
+	local fromCache = rosterCache and rosterCache[category]
+	if fromCache then
+		return fromCache
+	end
+	if typeof(AssetRoster.Directory) == "table" then
+		return AssetRoster.Directory[category]
+	end
+	return nil
+end
+
 function FN.resolveRarity(assetId)
 	if typeof(assetId) ~= "string" then
 		return nil
 	end
-	local rec = AssetRoster.Directory[assetId]
-	if not rec or not rec.Rarity then
-		return nil
+	if type(AssetItems.RarityRankForCategory) == "function" then
+		local ok, rank = pcall(AssetItems.RarityRankForCategory, assetId)
+		if ok and typeof(rank) == "number" and RARITY_NAMES[rank] then
+			return RARITY_NAMES[rank]
+		end
+		if ok and typeof(rank) == "string" and RARITY_RANK[rank] then
+			return rank
+		end
 	end
-	return rec.Rarity._id or rec.Rarity.DisplayName
+	local rec = FN.rosterLookup(assetId)
+	if rec and rec.Rarity then
+		return rec.Rarity._id or rec.Rarity.DisplayName
+	end
+	return nil
 end
 
 function FN.assetName(id)
 	id = id or ""
-	local rec = AssetRoster.Directory[id]
+	local rec = FN.rosterLookup(id)
 	if rec and rec.DisplayName then
 		return rec.DisplayName
 	end
@@ -741,23 +788,52 @@ function FN.groundedY(x, z, hint)
 	return laneY + 3
 end
 
+local function plotData()
+	local ok, plot = pcall(function()
+		if type(PlotStateModule.ResolvePlot) == "function" then
+			return PlotStateModule.ResolvePlot()
+		end
+		if type(PlotStateModule.GetPlotData) == "function" then
+			return PlotStateModule.GetPlotData()
+		end
+		return nil
+	end)
+	if ok and typeof(plot) == "table" then
+		return plot
+	end
+	return nil
+end
+
 function FN.getBasePosition()
-	local cf = PlotStateModule.GetRespawnPointCFrame()
-	if cf then
+	local cf
+	if type(PlotStateModule.FindRespawnCFrame) == "function" then
+		cf = pcall(PlotStateModule.FindRespawnCFrame) and PlotStateModule.FindRespawnCFrame() or nil
+	elseif type(PlotStateModule.GetRespawnPointCFrame) == "function" then
+		cf = PlotStateModule.GetRespawnPointCFrame()
+	end
+	if typeof(cf) == "CFrame" then
 		return cf.Position
 	end
-	local plot = PlotStateModule.GetPlotData()
-	if plot and plot.CenterPoint then
-		return plot.CenterPoint.Position
+	local plot = plotData()
+	if plot then
+		if plot.CenterPoint and plot.CenterPoint.Position then
+			return plot.CenterPoint.Position
+		end
+		if plot.PetArea and plot.PetArea.Position then
+			return plot.PetArea.Position
+		end
 	end
-	if plot and plot.PetArea then
-		return plot.PetArea.Position
+	if type(PlotStateModule.FindLocalBaseSign) == "function" then
+		local ok, sign = pcall(PlotStateModule.FindLocalBaseSign)
+		if ok and typeof(sign) == "Instance" then
+			return sign:GetPivot().Position
+		end
 	end
 	return nil
 end
 
 function FN.getPetAreaStandPosition()
-	local plot = PlotStateModule.GetPlotData()
+	local plot = plotData()
 	if plot and plot.PetArea then
 		return plot.PetArea.Position + Vector3.new(0, 4, 0)
 	end
@@ -765,7 +841,7 @@ function FN.getPetAreaStandPosition()
 end
 
 function FN.getTreadmillStand()
-	local plot = PlotStateModule.GetPlotData()
+	local plot = plotData()
 	local folder = plot and plot.PlotFolder
 	if not folder then
 		return nil
@@ -778,7 +854,7 @@ function FN.getTreadmillStand()
 end
 
 function FN.getFuseMachinePosition()
-	local plot = PlotStateModule.GetPlotData()
+	local plot = plotData()
 	local folder = plot and plot.PlotFolder
 	if not folder then
 		return nil
@@ -799,7 +875,7 @@ function FN.getFuseMachinePosition()
 end
 
 function FN.getPlacementLocalCFrames()
-	local plot = PlotStateModule.GetPlotData()
+	local plot = plotData()
 	if not plot or not plot.PetArea or not plot.CenterPoint then
 		return {}
 	end
@@ -844,7 +920,7 @@ function FN.isNearPlot()
 	if not root then
 		return false
 	end
-	if PlotStateModule.IsWorldPositionWithinLocalPlotBounds(root.Position) then
+	if FN.inLocalPlot(root.Position) then
 		return true
 	end
 	local stand = FN.getPetAreaStandPosition()
@@ -852,6 +928,22 @@ function FN.isNearPlot()
 		return false
 	end
 	return (root.Position - stand).Magnitude <= 30
+end
+
+function FN.inLocalPlot(pos)
+	if type(PlotStateModule.ContainsLocalPoint) == "function" then
+		local ok, res = pcall(PlotStateModule.ContainsLocalPoint, pos)
+		if ok then
+			return res == true
+		end
+	end
+	if type(PlotStateModule.IsWorldPositionWithinLocalPlotBounds) == "function" then
+		local ok, res = pcall(PlotStateModule.IsWorldPositionWithinLocalPlotBounds, pos)
+		if ok then
+			return res == true
+		end
+	end
+	return false
 end
 
 function FN.isPlotFull()
@@ -924,16 +1016,21 @@ function FN.resolveWaypoint(name)
 	end
 	return nil
 end
--- area egg snapshot
+-- area egg snapshot (live EggState: ReadFieldEggs -> { Records = { ... } })
 function FN.getAreaEggs()
-	local snapshot = EggStateModule.GetAreaEggSnapshot()
-	if typeof(snapshot) ~= "table" then
-		pcall(function()
-			EggStateModule.RequestAreaEggSnapshot()
-		end)
-		snapshot = EggStateModule.GetAreaEggSnapshot()
+	local ok, snapshot = pcall(function()
+		if type(EggStateModule.ReadFieldEggs) == "function" then
+			return EggStateModule.ReadFieldEggs()
+		end
+		if type(EggStateModule.GetAreaEggSnapshot) == "function" then
+			return EggStateModule.GetAreaEggSnapshot()
+		end
+		return nil
+	end)
+	if not ok or typeof(snapshot) ~= "table" then
+		return {}
 	end
-	if typeof(snapshot) ~= "table" or typeof(snapshot.Records) ~= "table" then
+	if typeof(snapshot.Records) ~= "table" then
 		return {}
 	end
 	local list = {}
@@ -956,20 +1053,25 @@ end
 
 function FN.getCarryState()
 	local me = LocalPlayer
-	local ok, states = pcall(function()
-		return EggStateModule.GetPlayerCarryStates()
-	end)
-	if ok and typeof(states) == "table" then
-		local mine = states[me.UserId] or states[tostring(me.UserId)] or states[me.Name]
-		if typeof(mine) == "table" then
-			return mine
+	local ok, owners = pcall(function()
+		if type(EggStateModule.ReadOwnedEggs) == "function" then
+			return EggStateModule.ReadOwnedEggs()
 		end
-	end
-	local ok2, single = pcall(function()
-		return EggStateModule.GetCarryState()
+		return nil
 	end)
-	if ok2 and typeof(single) == "table" then
-		return single
+	if ok and typeof(owners) == "table" then
+		for _, entry in pairs(owners) do
+			if typeof(entry) == "table" and tostring(entry.OwnerUserId) == tostring(me.UserId) then
+				local recs = entry.Records
+				if typeof(recs) == "table" then
+					for uid, rec in pairs(recs) do
+						if typeof(rec) == "table" and rec.State == "Carried" then
+							return { IsCarrying = true, Uid = uid }
+						end
+					end
+				end
+			end
+		end
 	end
 	for _, rec in ipairs(FN.getAreaEggs()) do
 		if rec.State == "Carried" then
@@ -1099,7 +1201,8 @@ end
 
 -- pet item data
 function FN.getPetItemData(item)
-	local ok, data = pcall(AssetItems.Deserialize, item)
+	local decoder = (type(AssetItems.Decode) == "function") and AssetItems.Decode or AssetItems.Deserialize
+	local ok, data = pcall(decoder, item)
 	if not ok or typeof(data) ~= "table" then
 		return nil
 	end
@@ -1252,7 +1355,8 @@ function FN.fusePrice(uids)
 			items[uid] = FN.getPetItemData(raw)
 		end
 	end
-	local ok, price = pcall(FuseKernel.CalculateFusePrice, items)
+	local pricer = (type(FuseKernel.PriceFor) == "function") and FuseKernel.PriceFor or FuseKernel.CalculateFusePrice
+	local ok, price = pcall(pricer, items)
 	if not ok then
 		return nil
 	end
@@ -1422,11 +1526,6 @@ function FN.dropHeldEgg()
 	local ok2 = pcall(function()
 		return EggStateModule.DropFieldEgg("PlayerRequest")
 	end)
-	if not ok2 then
-		ok2 = pcall(function()
-			return EggStateModule.RequestDropHeldAreaEgg()
-		end)
-	end
 	return ok2
 end
 
@@ -1482,7 +1581,13 @@ function FN.sellUid(uid)
 	if not FN.holdUid(uid) then
 		return false
 	end
-	FN.netCall("AssetInventory", "SELL_ASSET", uid)
+	local sold = FN.netCall("PetSatchel", "SellPet", { Uid = uid })
+	if not sold then
+		sold = FN.netCall("PetSatchel", "SellPet", uid)
+	end
+	if not sold then
+		FN.netCall("AssetInventory", "SELL_ASSET", uid)
+	end
 	local untilt = os.clock() + 2
 	while os.clock() < untilt do
 		local save = FN.getSave()
@@ -1507,11 +1612,9 @@ end
 
 -- economy tasks
 function FN.runAutoClaimIndex()
-	FN.netCall("Index", "REQUEST_CLAIM_ALL")
 	local ok = FN.netCall("Codex", "AskRedeemAll", {})
 	if not ok then
-		task.wait(0.2)
-		FN.netCall("Index", "REQUEST_CLAIM_ALL")
+		ok = FN.netCall("Codex", "AskRedeemAll")
 	end
 end
 
@@ -1520,12 +1623,6 @@ function FN.runAutoClaimGroupReward()
 end
 
 function FN.runClaimOfflineEarnings()
-	local summary = FN.netInvoke("OfflineAssets", "GET_SUMMARY")
-	local amount = summary and tonumber(summary.ClaimableAmount) or 0
-	if amount > 0 then
-		FN.netCall("OfflineAssets", "REQUEST_REDEEM")
-		return
-	end
 	local fetch = FN.netInvoke("AwayEarnings", "FetchSummary", {})
 	if typeof(fetch) == "table" and (tonumber(fetch.ClaimableAmount) or 0) > 0 then
 		FN.netCall("AwayEarnings", "AskCollect", { Kind = "Claim" })
@@ -1548,7 +1645,7 @@ function FN.runAutoUpgrades()
 			affordable = res == true
 		end
 		if affordable then
-			local called = FN.netCall("Plots", "REQUEST_BASE_UPGRADE")
+			local called = FN.netCall("Homestead", "AskBaseTierRaise")
 			if not called then
 				pcall(function()
 					BaseUpgradeModule.PurchaseNextTier()
@@ -1568,7 +1665,10 @@ function FN.runAutoUpgrades()
 			if (tonumber(save.Money) or 0) < price then
 				break
 			end
-			FN.netCall("Treadmills", "REQUEST_UPGRADE", nextLevel._id)
+			local upgraded = FN.netCall("Treadmill", "AskTierRaise", nextLevel._id)
+			if not upgraded then
+				FN.netCall("Treadmills", "REQUEST_UPGRADE", nextLevel._id)
+			end
 			task.wait(0.35)
 			level = level + 1
 			save = FN.getSave()
@@ -1598,7 +1698,10 @@ function FN.runAutoBuyTrail()
 			if not owned() then
 				local price = trailPrices[name]
 				if price and (tonumber(save.Money) or 0) >= price then
+					local bought = FN.netCall("Trailwear", "AskPurchase", id)
+				if not bought then
 					FN.netCall("Trails", "REQUEST_PURCHASE", id)
+				end
 					task.wait(0.35)
 					save = FN.getSave()
 					if not save then
@@ -1616,10 +1719,12 @@ function FN.runAutoEquipBest()
 		return
 	end
 	lastEquipAt = now
-	FN.netCall("Backpack", "EQUIP_BEST")
-	if not FN.netCall("Haul", "WearBest", {}) then
-		task.wait(0.1)
-		FN.netCall("Backpack", "EQUIP_BEST")
+	local equipped = FN.netCall("PenRoster", "ConfirmEquipBestBadge")
+	if not equipped then
+		equipped = FN.netCall("Backpack", "EQUIP_BEST")
+	end
+	if not equipped then
+		equipped = FN.netCall("Haul", "WearBest", {})
 	end
 end
 
@@ -1644,13 +1749,16 @@ function FN.runAutoEquipBestTrail()
 	if bestId == nil then
 		return
 	end
-	local worn = FN.netInvoke("Trails", "WORN_SNAPSHOT")
+	local worn = FN.netInvoke("Trailwear", "AskWornSnapshot")
 	if typeof(worn) == "table" then
 		if worn[tostring(LocalPlayer.UserId)] == bestId then
 			return
 		end
 	end
-	FN.netInvoke("Trails", "REQUEST_SELECT", bestId)
+	local chose = FN.netCall("Trailwear", "AskChoose", bestId)
+	if not chose then
+		FN.netInvoke("Trails", "REQUEST_SELECT", bestId)
+	end
 end
 
 function FN.runAutoEquipBestGear()
@@ -1812,28 +1920,37 @@ function FN.runAutoFusePets(manual)
 	if not group or #group < 3 then
 		return
 	end
-	local ok = FN.netCall("Fusions", "FUSE_BY_ID", group[1], group[2], group[3])
-	if not ok then
-		ok = FN.netCall("Fusions", "FUSE_BY_ID", { group[1], group[2], group[3] })
+	local started = FN.netCall("Fusery", "BeginFuse")
+	if not started then
+		started = FN.netCall("Fusery", "BeginFuse", { group[1], group[2], group[3] })
 	end
-	if not ok then
-		ok = FN.netCall("Fusery", "BeginFuse")
+	if not started then
+		started = FN.netCall("Fusions", "FUSE_BY_ID", { group[1], group[2], group[3] })
 	end
-	if not ok then
+	if not started then
 		FN.notify("No fuse remote available")
 		return
 	end
+	for _, uid in ipairs(group) do
+		local loaded = FN.netCall("Fusery", "LoadPet", uid)
+		if not loaded then
+			FN.netCall("Fusery", "LoadPet", { Uid = uid })
+		end
+		task.wait(0.3)
+	end
 	if FN.isOn("FuseAutoReveal") then
 		task.wait(1.5)
-		local revealed = false
-		for _, args in ipairs({ { group[1] }, { group[1], group[2], group[3] }, {} }) do
-			if FN.netCall("Fusions", "REVEAL_FUSE", table.unpack(args)) then
-				revealed = true
-				break
-			end
-			if FN.netCall("Fusery", "CompleteFuse", table.unpack(args)) then
-				revealed = true
-				break
+		local revealed = FN.netCall("Fusery", "FinishReveal")
+		if not revealed then
+			for _, args in ipairs({ { group[1] }, { group[1], group[2], group[3] }, {} }) do
+				if FN.netCall("Fusions", "REVEAL_FUSE", table.unpack(args)) then
+					revealed = true
+					break
+				end
+				if FN.netCall("Fusery", "CompleteFuse", table.unpack(args)) then
+					revealed = true
+					break
+				end
 			end
 		end
 		if not revealed then
@@ -2054,7 +2171,12 @@ end
 -- the steal sequence (1:1 decompile: glide approach, snap to egg, grab window, snap home)
 function FN.stealEgg(target)
 	FN.swapStealHumanoid()
-	local eggPos = FN.getSlotEggPosition(target)
+	local eggPos
+	if typeof(target) == "table" then
+		eggPos = FN.getEggPosition(target)
+	else
+		eggPos = FN.getSlotEggPosition(target)
+	end
 	local root = FN.getRoot()
 	if not eggPos or not root then
 		return false
@@ -2137,7 +2259,7 @@ function FN.runAutoReturn()
 		return FN.isOn("AutoReturn") and FN.isCarrying()
 	end)
 	local root = FN.getRoot()
-	if not root or not PlotStateModule.IsWorldPositionWithinLocalPlotBounds(root.Position) then
+	if not root or not FN.inLocalPlot(root.Position) then
 		return
 	end
 	local untilt = os.clock() + 4
@@ -2200,14 +2322,20 @@ function FN.runAutoTreadmillTraining()
 			return false
 		end
 	end
-	FN.netInvoke("Treadmills", "REQUEST_EQUIP_STATIC")
+	local wore = FN.netCall("Treadmill", "AskWearStill")
+	if not wore then
+		FN.netInvoke("Treadmills", "REQUEST_EQUIP_STATIC")
+	end
 	treadmillEquipped = true
 	return true
 end
 
 function FN.stopTreadmillTraining()
 	treadmillEquipped = false
-	FN.netInvoke("Treadmills", "REQUEST_UNEQUIP")
+	local doffed = FN.netCall("Treadmill", "AskDoff")
+	if not doffed then
+		FN.netInvoke("Treadmills", "REQUEST_UNEQUIP")
+	end
 	if FN.isDoubleSpeedVisible() then
 		FN.dismountTreadmill()
 		task.wait(0.1)
@@ -2233,27 +2361,17 @@ end
 
 -- target selection from the egg slot folder (slot.Name == egg uid)
 function FN.pickStealTarget()
-	local slots
-	local uidMap = {}
-	for _, rec in ipairs(FN.getAreaEggs()) do
-		if typeof(rec.Uid) == "string" then
-			uidMap[rec.Uid] = rec
-		end
-	end
-	local slotsClient = EggSlotsClient or Workspace:FindFirstChild("AreaEggSlotsClient")
-	if slotsClient then
-		slots = slotsClient:GetChildren()
-	else
+	local records = FN.getAreaEggs()
+	if #records == 0 then
 		return nil
 	end
 	local stealAll = FN.isOn("AutoStealAll")
 	local root = FN.getRoot()
 	local priority = FN.firstSelected("StealPriority", "Rarest")
 	local best, bestScore = nil, -math.huge
-	for _, slot in ipairs(slots) do
-		local rec = uidMap[slot.Name]
-		if rec and FN.isStealCandidate(rec, stealAll) then
-			local pos = FN.getSlotEggPosition(slot)
+	for _, rec in ipairs(records) do
+		if FN.isStealCandidate(rec, stealAll) then
+			local pos = FN.getEggPosition(rec)
 			local score
 			if not root or not pos then
 				score = 0
@@ -2269,7 +2387,7 @@ function FN.pickStealTarget()
 			end
 			if score > bestScore then
 				bestScore = score
-				best = slot
+				best = rec
 			end
 		end
 	end
@@ -2497,7 +2615,7 @@ function FN.collectEggEsp()
 		if not (isCarried and not showCarried or isSlot and not showWorld) then
 			local rarity = FN.resolveRarity(rec.AssetCategory)
 			local displayName = "?"
-			local dirRec = AssetRoster.Directory[rec.AssetCategory]
+			local dirRec = FN.rosterLookup(rec.AssetCategory)
 			if dirRec and dirRec.DisplayName then
 				displayName = dirRec.DisplayName
 			end
@@ -2603,7 +2721,7 @@ function FN.collectMachineEsp()
 	if not FN.isOn("EspMachines") then
 		return
 	end
-	local plot = PlotStateModule.GetPlotData()
+	local plot = pcall(PlotStateModule.ResolvePlot) and PlotStateModule.ResolvePlot() or nil
 	local folder = plot and plot.PlotFolder
 	if not folder then
 		return
@@ -2629,7 +2747,7 @@ function FN.collectPlotEsp()
 	if not FN.isOn("EspPlots") then
 		return
 	end
-	local plot = PlotStateModule.GetPlotData()
+	local plot = pcall(PlotStateModule.ResolvePlot) and PlotStateModule.ResolvePlot() or nil
 	local folder = plot and plot.PlotFolder
 	if not folder then
 		return
