@@ -2,8 +2,11 @@
 local RS = game:GetService("ReplicatedStorage")
 local WS = game:GetService("Workspace")
 local LP = game:GetService("Players").LocalPlayer
+local out = {}
 local say = function(fmt, ...)
-	print("[SAE-DIAG2]", (fmt):format(...))
+	local line = "[SAE-DIAG2] " .. (fmt):format(...)
+	out[#out + 1] = line
+	print(line)
 end
 
 local function describe(t, depth)
@@ -209,4 +212,13 @@ if objects then
 	end
 end
 
-say("DONE (read-only, nothing was fired)")
+local full = table.concat(out, "\n")
+local copied = pcall(setclipboard, full)
+if not copied then
+	copied = pcall(toclipboard, full)
+end
+if copied then
+	say("DONE (read-only) - FULL OUTPUT COPIED TO CLIPBOARD, paste it into a file")
+else
+	say("DONE (read-only) - clipboard unavailable, screenshot the console instead")
+end
