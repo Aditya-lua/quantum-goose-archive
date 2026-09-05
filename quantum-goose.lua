@@ -133,6 +133,7 @@ local TreadmillData
 local TrailsData
 local AssetItems
 local FuseKernel
+local SlotIdentity
 pcall(function()
 	local SharedFolder = ReplicatedStorage:WaitForChild("Shared")
 	Remotes = Remotes or require(SharedFolder:WaitForChild("Remotes"))
@@ -144,6 +145,9 @@ pcall(function()
 	end)
 	pcall(function()
 		FuseKernel = require(SharedFolder.Util.FuseKernel)
+	end)
+	pcall(function()
+		SlotIdentity = require(SharedFolder.Util.AreaEggSlotIdentity)
 	end)
 end)
 pcall(function()
@@ -1353,9 +1357,13 @@ function FN.fusePrice(uids)
 	local items = {}
 	for _, uid in ipairs(uids) do
 		local raw = inventory[uid]
-		if raw then
-			items[uid] = FN.getPetItemData(raw)
+		local data = raw and FN.getPetItemData(raw)
+		if data then
+			table.insert(items, data)
 		end
+	end
+	if #items ~= 3 then
+		return nil
 	end
 	local pricer = (type(FuseKernel.PriceFor) == "function") and FuseKernel.PriceFor or FuseKernel.CalculateFusePrice
 	local ok, price = pcall(pricer, items)
@@ -1515,13 +1523,23 @@ function FN.tryCarryEgg(target)
 	if typeof(uid) ~= "string" or uid == "" then
 		return false
 	end
-	local ok = FN.netCall("EggWorld", "AskFieldEggCarry", { Uid = uid })
-	if ok then
+	local slotKey = nil
+	if typeof(SlotIdentity) == "table" and type(SlotIdentity.LooksLikeFirstAreaUid) == "function"
+		and type(SlotIdentity.SlotKey) == "function" and SlotIdentity.LooksLikeFirstAreaUid(uid) then
+		for _, rec in ipairs(FN.getAreaEggs()) do
+			if rec.Uid == uid then
+				slotKey = SlotIdentity.SlotKey(rec.AreaId, rec.NestId)
+				break
+			end
+		end
+	end
+	local ok, res = pcall(function()
+		return EggStateModule.CarryFieldEgg(uid, slotKey)
+	end)
+	if ok and res == true then
 		return true
 	end
-	local ok2 = pcall(function()
-		return EggStateModule.CarryFieldEgg(uid)
-	end)
+	local ok2 = FN.netCall("EggWorld", "AskFieldEggCarry", { Uid = uid })
 	return ok2
 end
 
@@ -1620,7 +1638,18 @@ function FN.runAutoClaimIndex()
 end
 
 function FN.runAutoClaimGroupReward()
-	FN.netCall("GroupPerk", "RedeemPerk", true)
+	local save = FN.getSave()
+	if not save then
+		return
+	end
+	if save.ClaimedGroupReward == true then
+		return
+	end
+	local inGroup = false
+	pcall(function()
+		inGroup = LocalPlayer:IsInGroupAsync(825735094) == true
+	end)
+	FN.netCall("GroupPerk", "RedeemPerk", inGroup)
 end
 
 function FN.runClaimOfflineEarnings()
@@ -1917,9 +1946,31 @@ function FN.runAutoFusePets(manual)
 	if FN.isCarrying() then
 		return
 	end
+	local save = FN.getSave()
+	if not save then
+		return
+	end
+	if save.FusionLocked == true then
+		if manual or FN.isOn("FuseAutoReveal") then
+			FN.netCall("Fusery", "FinishReveal")
+		end
+		return
+	end
 	local group = FN.pickFuseGroup()
 	if not group or #group < 3 then
 		return
+	end
+	local price = FN.fusePrice(group)
+	if price and (tonumber(save.Money) or 0) < price then
+		return
+	end
+	local fusePos = FN.getFuseMachinePosition()
+	if fusePos and not FN.travelTo(fusePos, true) then
+		return
+	end
+	if save.FusionInfoAcknowledged ~= true then
+		FN.netCall("Fusery", "ConfirmBriefing")
+		task.wait(0.5)
 	end
 	local loadedAny = false
 	for _, uid in ipairs(group) do
