@@ -240,7 +240,16 @@ local RARITY_RANK = {
 }
 local RARITY_NAMES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine" }
 local AREA_NAMES = { "Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic", "Cherry Blossom", "Titan Temple" }
-local MUTATION_NAMES = { "Golden", "Rainbow", "Silver" }
+local MUTATION_NAMES = { "Silver", "Golden", "Rainbow", "Parasite", "Spirit Bloom", "Bloom", "Fractured" }
+local MUTATION_LABEL_TO_ID = {
+	Silver = "Silver",
+	Golden = "Golden",
+	Rainbow = "Rainbow",
+	Parasite = "Monstrous",
+	["Spirit Bloom"] = "GreatBloom",
+	Bloom = "Sakura",
+	Fractured = "Fractured",
+}
 local STEAL_TIMING = { GrabDelay = 0.55, ReturnPace = 0.12, ArriveDistance = 1.35, MoveTimeout = 14 }
 local RETURN_SNAP_PACE = 0.08
 
@@ -1072,7 +1081,7 @@ function FN.getCarryState()
 				if typeof(recs) == "table" then
 					for uid, rec in pairs(recs) do
 						if typeof(rec) == "table" and rec.State == "Carried" then
-							return { IsCarrying = true, Uid = uid }
+							return { IsCarrying = true, Uid = uid, Source = "server" }
 						end
 					end
 				end
@@ -1083,7 +1092,7 @@ function FN.getCarryState()
 		if rec.State == "Carried" then
 			local owner = rec.Owner or rec.OwnerName or rec.OwnerId or rec.OwnerUserId
 			if owner == me.Name or owner == me.UserId or tostring(owner) == tostring(me.UserId) then
-				return { IsCarrying = true, Uid = rec.Uid }
+				return { IsCarrying = true, Uid = rec.Uid, Source = "server" }
 			end
 		end
 	end
@@ -1095,7 +1104,7 @@ function FN.getCarryState()
 				if child:IsA("Tool") then
 					local uid = child:GetAttribute("UID")
 					if typeof(uid) == "string" and uid ~= "" then
-						return { IsCarrying = true, Uid = uid }
+						return { IsCarrying = true, Uid = uid, Source = "tool" }
 					end
 				end
 			end
@@ -1149,7 +1158,8 @@ function FN.matchesMutationFilter(mutKey, egg)
 	end
 	local selected = FN.multiSelected(mutKey)
 	for _, m in ipairs(FN.recordMutations(egg)) do
-		if selected[m] then
+		local id = MUTATION_LABEL_TO_ID[m] or m
+		if selected[m] or selected[id] then
 			return true
 		end
 	end
@@ -2208,6 +2218,45 @@ function FN.swapStealHumanoid()
 end
 
 -- the steal sequence (1:1 decompile: glide approach, snap to egg, grab window, snap home)
+-- since the 9/5 delivery check the server only banks a stolen egg if your
+-- arrival at it was a teleport; running or flying there gets it returned to
+-- the nest at your door. two-stage snap: hop to a nearby egg, then snap to the target
+function FN.tpToEgg(eggPos, target, still)
+	local targetUid = typeof(target) == "table" and target.Uid or nil
+	local anchorPos = nil
+	if typeof(targetUid) == "string" then
+		local bestDist = math.huge
+		for _, rec in ipairs(FN.getAreaEggs()) do
+			if rec.Uid ~= targetUid and (rec.State == "Slot" or rec.State == "Dropped") then
+				local cf = rec.BoundsCFrame or rec.BottomCFrame
+				if cf then
+					local d = (cf.Position - eggPos).Magnitude
+					if d >= 2 and d < bestDist then
+						bestDist = d
+						anchorPos = cf.Position
+					end
+				end
+			end
+		end
+	end
+	if not anchorPos then
+		local laneZ = FN.getLaneZ()
+		anchorPos = Vector3.new(eggPos.X, eggPos.Y, laneZ)
+	end
+	local gy = FN.groundedY(anchorPos.X, anchorPos.Z, anchorPos.Y)
+	if not FN.rawTeleport(Vector3.new(anchorPos.X, gy, anchorPos.Z)) then
+		return false
+	end
+	task.wait(0.1)
+	local root = FN.getRoot()
+	if not root or (still and not still()) then
+		return false
+	end
+	local gy2 = FN.groundedY(eggPos.X, eggPos.Z, eggPos.Y)
+	FN.anchorStealRoot(root, CFrame.new(eggPos.X, gy2, eggPos.Z))
+	return true
+end
+
 function FN.stealEgg(target)
 	FN.swapStealHumanoid()
 	local eggPos
@@ -2224,13 +2273,15 @@ function FN.stealEgg(target)
 	local homeZ = root.Position.Z
 	local homeY = FN.groundedY(homeX, homeZ, root.Position.Y)
 	local still = FN.stealingEnabled
-	if not FN.stealAlong(FN.buildStealPath(root.Position, eggPos), still) then
-		return false
+	local tpMode = FN.isOn("StealTeleport")
+	local arrived
+	if tpMode then
+		arrived = FN.tpToEgg(eggPos, target, still)
+	else
+		arrived = FN.stealAlong(FN.buildStealPath(root.Position, eggPos), still)
 	end
-	root = FN.getRoot()
-	if root then
-		local gy = FN.groundedY(eggPos.X, eggPos.Z, eggPos.Y)
-		FN.anchorStealRoot(root, CFrame.new(eggPos.X, gy, eggPos.Z))
+	if not arrived then
+		return false
 	end
 	if not FN.stealingEnabled() then
 		return false
@@ -2251,10 +2302,14 @@ function FN.stealEgg(target)
 	if not root then
 		return FN.isCarrying()
 	end
-	FN.stealAlong(FN.buildStealPath(root.Position, Vector3.new(homeX, homeY, homeZ)), still)
-	root = FN.getRoot()
-	if root then
-		FN.anchorStealRoot(root, CFrame.new(homeX, homeY, homeZ))
+	if tpMode then
+		FN.rawTeleport(Vector3.new(homeX, homeY, homeZ))
+	else
+		FN.stealAlong(FN.buildStealPath(root.Position, Vector3.new(homeX, homeY, homeZ)), still)
+		root = FN.getRoot()
+		if root then
+			FN.anchorStealRoot(root, CFrame.new(homeX, homeY, homeZ))
+		end
 	end
 	task.wait(STEAL_TIMING.ReturnPace)
 	return FN.isCarrying()
@@ -3712,6 +3767,13 @@ Farm:createToggle({
 	flagName = "AutoReturn",
 	Callback = function() end,
 })
+Farm:createToggle({
+	Name = "Instant TP Steal",
+	Description = "Teleport to the egg instead of running. Delivery only banks eggs reached by teleport.",
+	Flag = true,
+	flagName = "StealTeleport",
+	Callback = function() end,
+})
 
 -- Farm: Egg Handling
 header(Farm, "Egg Handling")
@@ -4384,20 +4446,67 @@ local function recordObtainedEgg(rec)
 	table.insert(obtainedEggLines, table.concat(parts, " | "))
 end
 
+local pendingSteal = nil
+local bankBusy = false
+
+local function readOwnedHasUid(uid)
+	local ok, owners = pcall(function()
+		if type(EggStateModule.ReadOwnedEggs) == "function" then
+			return EggStateModule.ReadOwnedEggs()
+		end
+		return nil
+	end)
+	if not ok or typeof(owners) ~= "table" then
+		return nil
+	end
+	for _, entry in pairs(owners) do
+		if typeof(entry) == "table" and tonumber(entry.OwnerUserId) == LocalPlayer.UserId then
+			local recs = entry.Records
+			if typeof(recs) == "table" and recs[uid] ~= nil then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function onCarryChange(data)
 	local nowCarrying = data ~= nil and data.IsCarrying == true
 	if nowCarrying and not Carrying then
 		Carrying = true
-		stolenCount = stolenCount + 1
-		if typeof(data.Uid) == "string" then
-			local rec = FN.findAreaEggRecord(data.Uid)
-			if rec then
-				recordObtainedEgg(rec)
-			end
+		if data.Source == "server" and typeof(data.Uid) == "string" then
+			pendingSteal = { uid = data.Uid, rec = FN.findAreaEggRecord(data.Uid) }
+		else
+			pendingSteal = nil
 		end
 	end
-	if not nowCarrying then
+	if not nowCarrying and Carrying then
 		Carrying = false
+		local pending = pendingSteal
+		pendingSteal = nil
+		if pending and not bankBusy then
+			bankBusy = true
+			task.spawn(function()
+				local untilt = os.clock() + 4
+				local banked = false
+				while os.clock() < untilt do
+					if readOwnedHasUid(pending.uid) == true then
+						banked = true
+						break
+					end
+					task.wait(0.3)
+				end
+				if banked then
+					stolenCount = stolenCount + 1
+					if pending.rec then
+						recordObtainedEgg(pending.rec)
+					end
+				else
+					FN.notify("Delivery failed — the egg was returned to its nest")
+				end
+				bankBusy = false
+			end)
+		end
 	end
 end
 
