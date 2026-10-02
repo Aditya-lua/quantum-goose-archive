@@ -113,12 +113,12 @@ local BF_RAW = _G.bfraw or ("https://raw.githubusercontent.com/" .. BF_OWNER .. 
 local BF_API = _G.bfapi or BF_RAW
 local BF_DISCORD = _G.bfdiscord or "discord.gg/bigfroot"
 
-local function getUrl(fileName, v5)
+local function getUrl(fileName, arg)
 	if fileName == "script.lua" or fileName == "hivehub.lua" then
 		return (_G.githuburl or BF_RAW) .. "/" .. fileName
 	end
 
-	if not v5 then
+	if not arg then
 		return (_G.weburl or BF_RAW) .. "/" .. fileName
 	end
 	return (_G.serverurl or BF_RAW) .. "/" .. fileName
@@ -1080,7 +1080,7 @@ local locations = {
 	Ace = Vector3.new(-487, 70, 1),
 }
 
-httprequest = function(requestOptions, v25)
+httprequest = function(requestOptions, arg)
 	local ok, result = pcall(http_request, requestOptions)
 
 	if not ok or not (not result.Success or not (result.StatusCode == 200 or result.StatusCode == 204)) then
@@ -1090,9 +1090,9 @@ httprequest = function(requestOptions, v25)
 		task.wait()
 		logger.warn(result)
 	elseif not result.Headers or not result.Headers["Content-Type"] or not string.find(result.Headers["Content-Type"], "text/html") then
-		logger.warn(v25, result.StatusCode, "-", result.Body or result.StatusMessage)
+		logger.warn(arg, result.StatusCode, "-", result.Body or result.StatusMessage)
 	else
-		logger.warn(v25, result.StatusCode)
+		logger.warn(arg, result.StatusCode)
 	end
 end
 
@@ -1221,9 +1221,9 @@ gameApi.Event = function(api, eventName, ...)
 	return remote:FireServer(...)
 end
 
-gameApi.CanBuy = function(api, item, costs, v29)
+gameApi.CanBuy = function(api, item, costs, arg)
 	if not costs then
-		costs = secureCall(api.ItemPackages.GetCost, v29, item)
+		costs = secureCall(api.ItemPackages.GetCost, arg, item)
 		if not costs then
 			return false
 		end
@@ -2281,7 +2281,7 @@ do
 
 				if not state.disconnect and not (not cfg.webhook.dashboard or cfg.webhook.key == "") then
 					local insert = table.insert
-					local v77 = pendingLogs
+					local value = pendingLogs
 					local logEntry = {}
 					local timestamp = DateTime.now()
 
@@ -2290,7 +2290,7 @@ do
 						table.move(values, 1, values.n, 1, logEntry)
 					end
 
-					insert(v77, logEntry)
+					insert(value, logEntry)
 
 					if not now or os.clock() - now >= 40 then
 						local batch = table.clone(pendingLogs)
@@ -2901,7 +2901,7 @@ do
 				box:AddButton({ Text = "Configure Amulet", Callback = function() ui.AmuletModal(n, y, o) end })
 			end
 
-			folderApi.AddBeeModal = function(text, configKey, v81)
+			folderApi.AddBeeModal = function(text, configKey, arg)
 				box:AddButton({ Text = text, Callback = function()
 					local beeSelection = configKey and cfg[configKey]
 					local beeModels = ReplicatedStorage.BeeModels
@@ -3046,7 +3046,7 @@ do
 									TextLabel4.Parent = ScrollingFrame4
 								end
 
-								if not (not beeSelection or beeSelection[v81] ~= i .. "," .. i2) then
+								if not (not beeSelection or beeSelection[arg] ~= i .. "," .. i2) then
 									local TextLabel4 = Instance.new("TextLabel")
 									TextLabel4.Name = "Selected"
 									TextLabel4.BackgroundTransparency = 1
@@ -3063,7 +3063,7 @@ do
 								end
 
 								ImageButton2.MouseButton1Click:Connect(function()
-									beeSelection[v81] = i .. "," .. i2
+									beeSelection[arg] = i .. "," .. i2
 									saveConfig()
 									Frame12:Destroy()
 								end)
@@ -3073,7 +3073,7 @@ do
 				end })
 			end
 
-			folderApi.Toggle = function(visible2, v80)
+			folderApi.Toggle = function(visible2, arg)
 				pcall(function() box:SetCollapsed(not visible2) end)
 			end
 
@@ -3246,15 +3246,15 @@ do
 				local sliderMin = itemInfo[2]
 				local sliderMax = itemInfo[3]
 
-				local function v79(v80)
-					local v81 = math.clamp(v80.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v81, 0, 20) }):Play()
+				local function fn(arg)
+					local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
 					local text2
 
 					if not (itemInfo[2] < 1) then
-						text2 = math.floor(sliderMin + v81 / clone3.AbsoluteSize.X * (sliderMax - sliderMin))
+						text2 = math.floor(sliderMin + value2 / clone3.AbsoluteSize.X * (sliderMax - sliderMin))
 					else
-						text2 = math.floor((sliderMin + v81 / clone3.AbsoluteSize.X * (sliderMax - sliderMin)) * 100) / 100
+						text2 = math.floor((sliderMin + value2 / clone3.AbsoluteSize.X * (sliderMax - sliderMin)) * 100) / 100
 					end
 
 					value.Text = text2
@@ -3274,7 +3274,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v79] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local initialValue = itemConfig and itemConfig[2] or sliderMin
@@ -3296,10 +3296,10 @@ do
 				title2.TextXAlignment = Enum.TextXAlignment.Left
 				title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-				local function v77(v78)
-					local v79 = math.clamp(v78.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v79, 0, 20) }):Play()
-					local text2 = math.floor(0 + v79 / clone3.AbsoluteSize.X * 5) or 0
+				local function fn(arg)
+					local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+					local text2 = math.floor(0 + value2 / clone3.AbsoluteSize.X * 5) or 0
 					value.Text = text2
 
 					if not itemConfig then
@@ -3317,7 +3317,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v77] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local text2 = itemConfig and itemConfig[2] or 0
@@ -3361,10 +3361,10 @@ do
 				title2.TextXAlignment = Enum.TextXAlignment.Left
 				title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-				local function v78(v79)
-					local v80 = math.clamp(v79.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v80, 0, 20) }):Play()
-					local text2 = math.floor(1 + v80 / clone3.AbsoluteSize.X * 4) or 0
+				local function fn(arg)
+					local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+					local text2 = math.floor(1 + value2 / clone3.AbsoluteSize.X * 4) or 0
 					value.Text = text2
 
 					if not itemConfig then
@@ -3382,7 +3382,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v78] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local text2 = itemConfig and itemConfig[2] or 1
@@ -3428,10 +3428,10 @@ do
 				title2.TextXAlignment = Enum.TextXAlignment.Left
 				title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-				local function v77(v78)
-					local v79 = math.clamp(v78.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v79, 0, 20) }):Play()
-					local text2 = math.floor(1 + v79 / clone3.AbsoluteSize.X * 59) or 0
+				local function fn(arg)
+					local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+					local text2 = math.floor(1 + value2 / clone3.AbsoluteSize.X * 59) or 0
 					value.Text = text2
 
 					if not itemConfig and itemName == "Stinger" then
@@ -3452,7 +3452,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v77] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local text2 = itemConfig and itemConfig[2] or 15
@@ -3667,10 +3667,10 @@ do
 					title2.TextXAlignment = Enum.TextXAlignment.Left
 					title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-					local function v77(v78)
-						local v79 = math.clamp(v78.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-						TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v79, 0, 20) }):Play()
-						local text2 = math.floor(1 + v79 / clone3.AbsoluteSize.X * 59) or 0
+					local function fn(arg)
+						local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+						TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+						local text2 = math.floor(1 + value2 / clone3.AbsoluteSize.X * 59) or 0
 						value.Text = text2
 
 						if not itemConfig and itemName == "Stinger" then
@@ -3691,20 +3691,20 @@ do
 							dragState = {}
 						end
 
-						dragState[v77] = "slider"
+						dragState[fn] = "slider"
 					end)
 
 					local text2 = itemConfig and itemConfig[2] or 15
 					value.Text = text2
-					local v78 = TweenService
+					local value2 = TweenService
 					local create = TweenService.Create
-					local v79 = indicator
+					local value3 = indicator
 					local tweenInfo = TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In)
-					local v80 = {}
+					local list = {}
 					local uDim2New = UDim2.new
-					local v81 = 0
-					v80.Size = uDim2New(v81, (math.clamp(tonumber(text2) or 0, 1, 60) - 1) / 59 * clone3.AbsoluteSize.X, 0, 20)
-					create(v78, v79, tweenInfo, v80):Play()
+					local num = 0
+					list.Size = uDim2New(num, (math.clamp(tonumber(text2) or 0, 1, 60) - 1) / 59 * clone3.AbsoluteSize.X, 0, 20)
+					create(value2, value3, tweenInfo, list):Play()
 					local useAfterInterval = false
 					local switch2 = uiParts.switch:Clone().Switch
 					switch2.Title.Text = "Use After Interval"
@@ -3778,8 +3778,8 @@ do
 					local switch3 = uiParts.switch:Clone().Switch
 					switch3.Title.Text = "Use When Pop Star"
 					local uDim2New2 = UDim2.new
-					local v84 = 0
-					switch3.Position = uDim2New2(v84, 0, 0, itemName == "Stinger" and 100 or 75)
+					local num2 = 0
+					switch3.Position = uDim2New2(num2, 0, 0, itemName == "Stinger" and 100 or 75)
 					switch3.Parent = clone2
 
 					if not (not itemConfig or not itemConfig[4]) then
@@ -3807,7 +3807,7 @@ do
 					local useScorchingStar = false
 					local switch4 = uiParts.switch:Clone().Switch
 					switch4.Title.Text = "Use When Scorching Star"
-					switch4.Position = UDim2.new(v84, 0, 0, itemName == "Stinger" and 125 or 100)
+					switch4.Position = UDim2.new(num2, 0, 0, itemName == "Stinger" and 125 or 100)
 					switch4.Parent = clone2
 
 					if not (not itemConfig or not itemConfig[5]) then
@@ -3835,7 +3835,7 @@ do
 					local useGummyStar = false
 					local switch5 = uiParts.switch:Clone().Switch
 					switch5.Title.Text = "Use When Gummy Star"
-					switch5.Position = UDim2.new(v84, 0, 0, itemName == "Stinger" and 150 or 125)
+					switch5.Position = UDim2.new(num2, 0, 0, itemName == "Stinger" and 150 or 125)
 					switch5.Parent = clone2
 
 					if not (not itemConfig or not itemConfig[6]) then
@@ -3898,10 +3898,10 @@ do
 				title2.TextXAlignment = Enum.TextXAlignment.Left
 				title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-				local function v78(v79)
-					local v80 = math.clamp(v79.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v80, 0, 20) }):Play()
-					local text2 = math.floor(1 + v80 / clone3.AbsoluteSize.X * 99) or 0
+				local function fn(arg)
+					local value2 = math.clamp(arg.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+					local text2 = math.floor(1 + value2 / clone3.AbsoluteSize.X * 99) or 0
 					value.Text = text2
 
 					if not itemConfig then
@@ -3919,7 +3919,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v78] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local text2 = itemConfig and itemConfig[3] or 100
@@ -4026,7 +4026,7 @@ do
 		clone2.Parent = box
 	end
 
-	ui.AmuletModal = function(text, amuletKey, v70)
+	ui.AmuletModal = function(text, amuletKey, arg)
 		local Modal = ScreenGui:FindFirstChild("Modal")
 
 		if Modal then
@@ -4066,10 +4066,10 @@ do
 			table.insert(tierList, "Supreme")
 		end
 
-		local amuletData = state.amulets[v70 and text or selectedTier .. " " .. text]
+		local amuletData = state.amulets[arg and text or selectedTier .. " " .. text]
 		local statRows = {}
 
-		local function getStatSuffix(statText, v78)
+		local function getStatSuffix(statText, arg2)
 			if string.find(statText, "+Passive:") then
 				return "+Passive:"
 			end
@@ -4081,20 +4081,20 @@ do
 			if string.find(statText, "%%") then
 				return "+%"
 			end
-			return v78 == "Mul" and "x" or "+"
+			return arg2 == "Mul" and "x" or "+"
 		end
 
-		local function addStatRow(parent, v78, statConfig, text2, minValue, maxValue, stepSize, hasRequired, v84)
+		local function addStatRow(parent, arg2, statConfig, text2, minValue, maxValue, stepSize, hasRequired, arg3)
 			local statEntry = statConfig[text2]
 			local isPassive = string.find(text2, "Passive") ~= nil
 			local clone2 = uiParts.switch:Clone()
 			clone2.Name = "Frame"
 			local uDim2New = UDim2.new
-			local v87 = 1
-			local v88 = 0
-			local v89 = 0
-			clone2.Size = uDim2New(v87, v88, v89, (isPassive and 20 or 45) + (hasRequired and 25 or 0) + (v84 and 25 or 0))
-			clone2.Position = UDim2.new(0, 0, 0, v78)
+			local num = 1
+			local num2 = 0
+			local num3 = 0
+			clone2.Size = uDim2New(num, num2, num3, (isPassive and 20 or 45) + (hasRequired and 25 or 0) + (arg3 and 25 or 0))
+			clone2.Position = UDim2.new(0, 0, 0, arg2)
 			clone2.Parent = parent
 			local isEnabled = false
 			local switch = clone2.Switch
@@ -4110,15 +4110,15 @@ do
 				switch.Text = isEnabled and utf8.char(10003) or ""
 
 				if not statEntry then
-					local v91 = text2
+					local value = text2
 					local newEntry = {}
-					local v93 = isEnabled
-					local v94 = false
-					local v95 = not isPassive and minValue or nil
-					newEntry[1] = v93
-					newEntry[2] = v94
-					newEntry[3] = v95
-					statConfig[v91] = newEntry
+					local value2 = isEnabled
+					local flag = false
+					local flag2 = not isPassive and minValue or nil
+					newEntry[1] = value2
+					newEntry[2] = flag
+					newEntry[3] = flag2
+					statConfig[value] = newEntry
 					statEntry = statConfig[text2]
 				else
 					statEntry[1] = isEnabled
@@ -4156,7 +4156,7 @@ do
 
 			if not isPassive then
 				local clone3 = uiParts.slider:Clone()
-				clone3.Position = UDim2.new(0, v89, 0, (hasRequired or v84) and 50 or 25)
+				clone3.Position = UDim2.new(0, num3, 0, (hasRequired or arg3) and 50 or 25)
 				clone3.Size = UDim2.new(1, 0, 0, 20)
 				clone3.Parent = clone2
 				local button = clone3.Button
@@ -4167,10 +4167,10 @@ do
 				title2.TextXAlignment = Enum.TextXAlignment.Left
 				title2.Position = UDim2.new(0, 0, 0.5, -10)
 
-				local function v91(v92)
-					local v93 = math.clamp(v92.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
-					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, v93, 0, 20) }):Play()
-					local text3 = math.floor(math.floor((minValue + v93 / clone3.AbsoluteSize.X * (maxValue - minValue)) / stepSize) * stepSize * 100) / 100
+				local function fn(arg4)
+					local value2 = math.clamp(arg4.Position.X - clone3.AbsolutePosition.X, 0, clone3.AbsoluteSize.X)
+					TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, value2, 0, 20) }):Play()
+					local text3 = math.floor(math.floor((minValue + value2 / clone3.AbsoluteSize.X * (maxValue - minValue)) / stepSize) * stepSize * 100) / 100
 					value.Text = text3
 
 					if not statEntry then
@@ -4188,7 +4188,7 @@ do
 						dragState = {}
 					end
 
-					dragState[v91] = "slider"
+					dragState[fn] = "slider"
 				end)
 
 				local sliderValue = statEntry and statEntry[3] or minValue
@@ -4196,9 +4196,9 @@ do
 				TweenService:Create(indicator, TweenInfo.new(0.08, Enum.EasingStyle.Linear, Enum.EasingDirection.In), { Size = UDim2.new(0, (math.clamp(tonumber(sliderValue) or 0, minValue, maxValue) - minValue) / (maxValue - minValue) * clone3.AbsoluteSize.X, 0, 20) }):Play()
 			end
 
-			if v84 then
+			if arg3 then
 				local clone3 = uiParts.label:Clone()
-				clone3.Text = "Chance: " .. v84 .. "%"
+				clone3.Text = "Chance: " .. arg3 .. "%"
 				clone3.Position = UDim2.new(0, 0, 0, isPassive and 50 or 75)
 				clone3.Size = UDim2.new(1, 0, 0, 20)
 				clone3.Parent = clone2
@@ -4212,17 +4212,17 @@ do
 				Frame12.BackgroundTransparency = 1
 				Frame12.BorderSizePixel = 0
 				local uDim2New = UDim2.new
-				local v80 = 1
-				local v81 = 0
-				local v82 = 0
-				Frame12.Size = uDim2New(v80, v81, v82, i == 1 and 60 or 80)
+				local num = 1
+				local num2 = 0
+				local num3 = 0
+				Frame12.Size = uDim2New(num, num2, num3, i == 1 and 60 or 80)
 				Frame12.Parent = box
 				table.insert(statRows, Frame12)
 				local clone2 = uiParts.label:Clone()
 				clone2.TextSize = 14
 				local uDim2New2 = UDim2.new
-				local v83 = 0
-				clone2.Position = uDim2New2(v81, v82, v83, i == 1 and 0 or 20)
+				local num4 = 0
+				clone2.Position = uDim2New2(num2, num3, num4, i == 1 and 0 or 20)
 				clone2.Parent = Frame12
 
 				if not pool.Pool then
@@ -4245,17 +4245,17 @@ do
 					for _, poolEntry in ipairs(pool.Pool) do
 						if not pool.Chance and (not poolEntry.Chance or poolEntry.Chance == 1) then
 							if pool.Select > 1 then
-								v82 += 1
+								num3 += 1
 							end
 						else
-							v81 += 1
-							v82 += 1
+							num2 += 1
+							num3 += 1
 						end
 
-						v83 += poolEntry.Type == "PlayerAbility" and 25 or 50
+						num4 += poolEntry.Type == "PlayerAbility" and 25 or 50
 					end
 
-					Frame12.Size = UDim2.new(1, 0, 0, (i == 1 and 15 or 35) + v83 + v81 * 25 + v82 * 25)
+					Frame12.Size = UDim2.new(1, 0, 0, (i == 1 and 15 or 35) + num4 + num2 * 25 + num3 * 25)
 
 					if pool.Select > 1 then
 						clone2.Text = "Pool " .. i .. ": " .. pool.Select .. " Mod(s)"
@@ -4281,7 +4281,7 @@ do
 			table.insert(statRows, clone2)
 		end
 
-		if not v70 then
+		if not arg then
 			local clone2 = uiParts.dropdown:Clone()
 			clone2.Size = UDim2.new(1, 0, 0, 20)
 			clone2.Parent = box
@@ -4467,7 +4467,7 @@ do
 		return hit.Instance
 	end
 
-	isPathClear = function(target, avoid, v71, v72, v73)
+	isPathClear = function(target, avoid, arg, arg2, arg3)
 		local position2 = getRootPart().Position
 		local offset = target - position2
 		local magnitude = offset.magnitude
@@ -4503,12 +4503,12 @@ do
 				return true
 			end
 
-			if not v72 and not (radius ~= 24 or not (2.2 - (os.time() - timestamp) < magnitude / getHumanoid().WalkSpeed)) then
+			if not arg2 and not (radius ~= 24 or not (2.2 - (os.time() - timestamp) < magnitude / getHumanoid().WalkSpeed)) then
 				return true
 			end
 
-			if v71 then
-				if not ((v73 and radius - 6 or radius) < (position2 - position3).magnitude) then
+			if arg then
+				if not ((arg3 and radius - 6 or radius) < (position2 - position3).magnitude) then
 					continue
 				end
 			end
@@ -4520,7 +4520,7 @@ do
 		end
 	end
 
-	randomFieldPosition = function(constraints, widen, v71)
+	randomFieldPosition = function(constraints, widen, arg)
 		local x = vector.X
 		local z = vector.Z
 
@@ -4541,7 +4541,7 @@ do
 		while true do
 			if not (attempts < 100) then
 				if not constraints.avoid or not constraints.range then
-					if v71 then
+					if arg then
 						local attempts2 = 0
 
 						while true do
@@ -4824,7 +4824,7 @@ do
 	}
 
 	if workspace:FindFirstChild("Collectibles") then
-		local function v69(target)
+		local function fn(target)
 			local distance = distanceTo(target)
 			local tween = TweenService:Create(getRootPart(), TweenInfo.new(distance / 200, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), { CFrame = CFrame.new(target) })
 			stopMovement()
@@ -4840,7 +4840,7 @@ do
 			local u = n.FrontDecal.Texture
 
 			if cfg.detected.fastraretween and not state.stop and not state.fasttween and not state.stopfasttween and (state.rares[string.match(u, "%d+")] or state.rares.Sticker and n:FindFirstChild("Spots")) then
-				v69(n.Position)
+				fn(n.Position)
 			elseif u == "rbxassetid://1629547638" then
 				tracked.tokenlink[n] = true
 			else
@@ -5744,7 +5744,7 @@ input.getButtonPosition = function(button)
 	return absolutePos.X, absolutePos.Y
 end
 
-input.pressButton = function(owner, button, v63, v64, useActivated)
+input.pressButton = function(owner, button, arg, arg2, useActivated)
 	if not useActivated then
 		secureCall(firesignal, button.MouseButton1Click)
 	else
@@ -5880,7 +5880,7 @@ inventory.Fetch = function(owner)
 	return owned
 end
 
-inventory.Has = function(owner, required, v63, v64)
+inventory.Has = function(owner, required, arg, arg2)
 	for k, requirement in pairs(required) do
 		local timeKey = requirement == "lessthan10" and k .. "lessthan10" or k
 		if not owner.time[timeKey] then
@@ -5893,7 +5893,7 @@ inventory.Has = function(owner, required, v63, v64)
 		return
 	end
 
-	local ownedItems = owner:Fetch(v63, v64)
+	local ownedItems = owner:Fetch(arg, arg2)
 
 	if not ownedItems then
 		for k in pairs(required) do
@@ -5925,7 +5925,7 @@ inventory.Has = function(owner, required, v63, v64)
 	return hasAll
 end
 
-inventory.Get = function(owner, itemName, v63)
+inventory.Get = function(owner, itemName, arg)
 	if owner.time[itemName] then
 		local lastChecked = owner.time[itemName]
 		if os.clock() - lastChecked < 30 then
@@ -5933,7 +5933,7 @@ inventory.Get = function(owner, itemName, v63)
 		end
 	end
 
-	local ownedItems = owner:Fetch(v63)
+	local ownedItems = owner:Fetch(arg)
 	if not ownedItems then
 		owner.time[itemName] = os.clock()
 		return
@@ -5954,7 +5954,7 @@ inventory.Use = function(owner, itemName)
 		end
 	end
 
-	local ownedItems, v64 = owner:Fetch(true, true)
+	local ownedItems, value = owner:Fetch(true, true)
 	if not ownedItems then
 		owner.time[itemName] = os.clock()
 		return
@@ -5995,10 +5995,10 @@ mobCooldown = function(spawner, asText)
 			respawnDelay = 960
 		end
 
-		local v67 = gameApi:Cache({ "MonsterTimes", spawner.Name })
-		local v68 = secureCall(gameApi.ClientMonsterTools, spawner.Name)
-		if not (not v67 or not v68 or not (workspace:GetServerTimeNow() - v67 <= v68 + respawnDelay)) then
-			setTimer(spawner.Name, os.time() + (v68 + respawnDelay - (workspace:GetServerTimeNow() - v67)))
+		local value = gameApi:Cache({ "MonsterTimes", spawner.Name })
+		local value2 = secureCall(gameApi.ClientMonsterTools, spawner.Name)
+		if not (not value or not value2 or not (workspace:GetServerTimeNow() - value <= value2 + respawnDelay)) then
+			setTimer(spawner.Name, os.time() + (value2 + respawnDelay - (workspace:GetServerTimeNow() - value)))
 			return mobCooldown(spawner, asText)
 		end
 	else
@@ -6032,14 +6032,14 @@ mobCooldown = function(spawner, asText)
 	end
 end
 
-local function planterTimeLeft(planter, withName, v67)
+local function planterTimeLeft(planter, withName, arg)
 	if not planter then
 		return
 	end
 	local harvestSeconds = nil
 	local holdForReward = nil
 
-	if v67 then
+	if arg then
 		local remainingHours = cfg.planters.nectar.timetoharvest - planter.percent.Value * planterInfo[planter.name]
 		local remainingSeconds
 
@@ -6241,9 +6241,9 @@ local function findPath(from, to, useCannon, nodes, links)
 				end
 
 				if not openSet[k] then
-					local v92 = newCost
+					local value = newCost
 					local magnitude2 = useCannon and 0 or (neighborPosition - goalPosition).magnitude
-					openSet[k] = { v92, magnitude2, v92 + magnitude2 }
+					openSet[k] = { value, magnitude2, value + magnitude2 }
 					cameFrom[k] = { parent = currentNode, connection = link }
 				elseif newCost < openSet[k][1] then
 					openSet[k][1] = newCost
@@ -39941,12 +39941,12 @@ do
 		for k, field in pairs(buffs.Fields) do
 			if (not cfg.boosters.fieldsblacklist or not cfg.boosters.fieldsblacklist[k]) and (k ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) then
 				local insert = table.insert
-				local v120 = boostedList
+				local value = boostedList
 				local fieldEntry = { field = k, percent = field.Percent.Size.Y.Scale }
 				local tonumber_ = tonumber
 				local amountText = string.gsub(field.Text.Text, "x", "")
 				fieldEntry.amount = tonumber_(amountText) or 1
-				insert(v120, fieldEntry)
+				insert(value, fieldEntry)
 			end
 		end
 
@@ -39997,9 +39997,9 @@ do
 		return topField, wanted
 	end
 
-	pickBoostedField = function(v119, v120)
-		if not v119 then
-			if not v120 then
+	pickBoostedField = function(arg, arg2)
+		if not arg then
+			if not arg2 then
 				local candidates = {}
 
 				if cfg.toys.farmwinds then
@@ -41335,7 +41335,7 @@ do
 				local questInfo = callName == "CompleteQuest" and secureCall(gameApi.Quests.Get, nil, callArg)
 				local displayName = callName == "CompleteQuest" and questInfo and questInfo.DisplayName or callArg
 				local npc = callName == "CompleteQuest" and questInfo and questInfo.NPC or callArg
-				local v122 = callName == "CompleteQuestFromPool" and gameApi:Cache({ "Totals", "QuestPoolCounts", npc }) or npc == "Black Bear" and table.find(questData.blackbear, displayName) or npc == "Mother Bear" and table.find(questData.motherbear, displayName) or npc == "Panda Bear" and table.find(questData.pandabear, displayName) or npc == "Science Bear" and table.find(questData.sciencebear, displayName) or npc == "Dapper Bear" and table.find(questData.dapperbear, displayName) or npc == "Spirit Bear" and table.find(questData.spiritbear, displayName) or 0
+				local value = callName == "CompleteQuestFromPool" and gameApi:Cache({ "Totals", "QuestPoolCounts", npc }) or npc == "Black Bear" and table.find(questData.blackbear, displayName) or npc == "Mother Bear" and table.find(questData.motherbear, displayName) or npc == "Panda Bear" and table.find(questData.pandabear, displayName) or npc == "Science Bear" and table.find(questData.sciencebear, displayName) or npc == "Dapper Bear" and table.find(questData.dapperbear, displayName) or npc == "Spirit Bear" and table.find(questData.spiritbear, displayName) or 0
 
 				if callName == "CompleteQuestFromPool" then
 					local lastQuestName = gameApi:Cache({ "Quests", "PoolLastQuests", npc })
@@ -41343,7 +41343,7 @@ do
 					displayName = lastQuest.DisplayName or lastQuest.Name
 				end
 
-				discord.Send(string.gsub(string.gsub(displayName, npc .. ": ", ""), "Bear 2", "Bear"), (npc == "Polar Bear" and "Polar Power: " .. string.gsub(buffs.PolarBear.Text, "x", "") .. " <:PolarPower:1290695100439072798>" or "Total " .. string.gsub(npc, "Bear 2", "Bear") .. " Quests: " .. v122) .. "\nTimestamp: <t:" .. os.time() .. ":R>")
+				discord.Send(string.gsub(string.gsub(displayName, npc .. ": ", ""), "Bear 2", "Bear"), (npc == "Polar Bear" and "Polar Power: " .. string.gsub(buffs.PolarBear.Text, "x", "") .. " <:PolarPower:1290695100439072798>" or "Total " .. string.gsub(npc, "Bear 2", "Bear") .. " Quests: " .. value) .. "\nTimestamp: <t:" .. os.time() .. ":R>")
 			end
 		end,
 		StationSpawn = function(stationData)
@@ -41931,7 +41931,7 @@ do
 		end
 	end
 
-	skipDialog = function(dialog, v120, pickFirstOption)
+	skipDialog = function(dialog, arg, pickFirstOption)
 		local optionFrame = dialog.OptionFrame
 		local now = os.clock()
 
@@ -42673,7 +42673,7 @@ do
 		end
 	end
 
-	discord.SendHoney = function(v121, isTest)
+	discord.SendHoney = function(arg, isTest)
 		if not cfg.webhook.enabled or cfg.webhook.url == "" or state.disconnect then
 			return
 		end
@@ -42733,7 +42733,7 @@ do
 
 		if cfg.webhook.nectars then
 			local nectarLines = {}
-			local nectars = v121.emojis.nectars
+			local nectars = arg.emojis.nectars
 
 			pcall(function()
 				for k, nectarBuff in pairs(buffs.Nectar) do
@@ -42748,7 +42748,7 @@ do
 
 		if cfg.webhook.planters then
 			local planterLines = {}
-			local emojis = v121.emojis
+			local emojis = arg.emojis
 			local fields3 = emojis.fields
 			local planters = emojis.planters
 			local nectars = emojis.nectars
@@ -42802,7 +42802,7 @@ do
 
 		if cfg.webhook.drives then
 			local driveLines = {}
-			local drives = v121.emojis.drives
+			local drives = arg.emojis.drives
 
 			pcall(function()
 				for k, driveCount in pairs(gameApi:Cache({ "MiscInfo", "DBDrives", "Counts" })) do
@@ -42842,7 +42842,7 @@ do
 		if cfg.webhook.dappershop then
 			local shopLines = {}
 			local nextUpdate = nil
-			local bq = v121.emojis.bq
+			local bq = arg.emojis.bq
 
 			pcall(function()
 				for k, shopItem in pairs(secureCall(gameApi.CyclingShopTools.GetCache)) do
@@ -42872,7 +42872,7 @@ do
 
 		if cfg.webhook.items then
 			local ok, result = pcall(function()
-				local itemsText = v121.Items(true)
+				local itemsText = arg.Items(true)
 
 				if not itemsText or not (#itemsText > 1000) then
 					if itemsText then
@@ -42944,11 +42944,11 @@ Content-Disposition: form-data; name="payload_json"
 		end
 	end
 
-	discord.SendGraph = function(v121, isTest)
+	discord.SendGraph = function(arg, isTest)
 		if not (not state.disconnect and not ((not cfg.webhook.graph or cfg.webhook.graphurl == "") and (not cfg.webhook.dashboard or cfg.webhook.key == ""))) then
 			return
 		end
-		local graph = v121.graph
+		local graph = arg.graph
 		local value = localPlayer.CoreStats.Honey.Value
 
 		if not graph.honey_values["0"] then
@@ -42960,7 +42960,7 @@ Content-Disposition: form-data; name="payload_json"
 		end
 
 		local now = os.time()
-		local start = v121.start
+		local start = arg.start
 		local sessionSeconds = now - (start or os.time())
 		local sessionHoney = value - state.honeyatstart
 		local improved = value - graph.honey_values["0"] > (state.honey_earned or 0)
@@ -43204,24 +43204,24 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 		end
 	end
 
-	discord.GraphStart = function(v121, enabled)
+	discord.GraphStart = function(arg, enabled)
 		if not enabled or threads:Get("webhookgraph") then
 			if not enabled then
 				threads:Cancel("webhookgraph")
 			end
 		else
-			v121.graph = deepCopy(v121.default_graph)
+			arg.graph = deepCopy(arg.default_graph)
 
 			threads:Add("webhookgraph", function()
-				v121.hourstart = os.time()
-				v121.start = os.time()
+				arg.hourstart = os.time()
+				arg.start = os.time()
 				local lastBucket = -1
 
 				while true do
-					local hourstart = v121.hourstart
+					local hourstart = arg.hourstart
 					local elapsedSeconds = os.time() - hourstart
 					local elapsedMinutes = math.floor(elapsedSeconds / 60)
-					local graph = v121.graph
+					local graph = arg.graph
 					local value = localPlayer.CoreStats.Honey.Value
 					local pollenPercent = math.floor(localPlayer.CoreStats.Pollen.Value / localPlayer.CoreStats.Capacity.Value * 100)
 
@@ -43301,21 +43301,21 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						task.wait(1)
 						continue
 					end
-					v121:SendGraph()
-					v121.hourstart = os.time()
-					v121.statsold = {}
+					arg:SendGraph()
+					arg.hourstart = os.time()
+					arg.statsold = {}
 					lastBucket = -1
 
 					for k, stat in pairs(discord.stats) do
-						v121.statsold[k] = stat
+						arg.statsold[k] = stat
 					end
 
-					local copy = deepCopy(v121.default_graph)
+					local copy = deepCopy(arg.default_graph)
 					copy.honey_12h = graph.honey_12h
 					copy.gatherTime = graph.gatherTime
 					copy.convertTime = graph.convertTime
 					copy.otherTime = graph.otherTime
-					v121.graph = copy
+					arg.graph = copy
 				end
 			end)
 		end
@@ -43822,7 +43822,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 			payload.bought_items = boughtItems
 			local routeList = {}
-			local v133 = nil
+			local value = nil
 			local stopSearching = nil
 			local hiveSlots = 26 + math.floor(playerCache.Totals.Purchases.HiveSlots or 0)
 
@@ -43886,7 +43886,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 							local itemIndex = table.find(itemList, purchaseItem)
 							local ownedIndex = nil
 							local name = nil
-							local v142 = nil
+							local value2 = nil
 
 							if itemKind ~= "Eggs" then
 								local ipairs_2 = ipairs
@@ -43900,7 +43900,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 									end
 
 									if ownedItem == "Petal Belt" then
-										v142 = true
+										value2 = true
 									end
 								end
 							else
@@ -43928,8 +43928,8 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								name = "BlueHQ"
 							end
 
-							if not (not name or not ((not ownedIndex or ownedIndex < itemIndex) and (purchaseItem ~= "Petal Wand" or v142))) then
-								v133 = purchaseItem
+							if not (not name or not ((not ownedIndex or ownedIndex < itemIndex) and (purchaseItem ~= "Petal Wand" or value2))) then
+								value = purchaseItem
 							end
 						end
 					end
@@ -43938,7 +43938,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 			payload.auto_progression = {
 				enabled = cfg.toys.prog,
-				next_item = v133,
+				next_item = value,
 				next_hive_slot = hiveSlots,
 				auto_progression_route = routeList,
 			}
@@ -50468,7 +50468,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			return true
 		end
 
-		local function buildAvoidGrid(v128)
+		local function buildAvoidGrid(arg)
 			local nodePositions = {}
 			local nodeEdges = {}
 			local nextNodeId = 1
@@ -50608,10 +50608,10 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			for _, gridColumn in pairs(gridColumns) do
 				for _, cellNode in pairs(gridColumn) do
 					local hasLinks = false
-					local v150, v151, v152 = pairs(nodeEdges[cellNode])
-					local v153 = table.pack(v150(v151, v152))
+					local value, value2, value3 = pairs(nodeEdges[cellNode])
+					local value4 = table.pack(value(value2, value3))
 
-					if v153[1] then
+					if value4[1] then
 						hasLinks = true
 					end
 
@@ -50638,7 +50638,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			end
 
 			for k, nodePosition in pairs(nodePositions) do
-				for k2, avoidRadius in pairs(v128) do
+				for k2, avoidRadius in pairs(arg) do
 					if (type(k2) == "vector" and k2 or k2.Name ~= true and k2:FindFirstChild("Plane") and k2.Plane.Position or k2.Position - nodePosition).magnitude < avoidRadius then
 						removeNode(k)
 						break
@@ -50708,11 +50708,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 		local function followPrecise(startMark, options)
 			local now = os.clock()
-			local v132 = { v = startMark }
+			local list = { v = startMark }
 			local now2
 
 			while true do
-				if not v132 or not (os.clock() - now < 4) then
+				if not list or not (os.clock() - now < 4) then
 					return
 				else
 					if not RunService.Heartbeat:Wait() then
@@ -50720,15 +50720,15 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					end
 					now2 = os.clock()
 
-					if distanceTo(v132.v.Position, true) > 6 then
-						getHumanoid():MoveTo(v132.v.Position)
+					if distanceTo(list.v.Position, true) > 6 then
+						getHumanoid():MoveTo(list.v.Position)
 					end
 
-					while not (not v132.v.Parent or not (not not (distanceTo(v132.v.Position, true) > 6) and os.clock() - now2 < 4)) do
+					while not (not list.v.Parent or not (not not (distanceTo(list.v.Position, true) > 6) and os.clock() - now2 < 4)) do
 						RunService.Heartbeat:Wait()
 					end
 
-					local mark = v132.v
+					local mark = list.v
 					local matchCount = 0
 					local totalCount = 0
 					local best = nil
@@ -50754,11 +50754,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					if totalCount > 2 and matchCount == 0 then
 						break
 					end
-					v132 = best
+					list = best
 				end
 			end
 
-			while not (not v132.v.Parent or not (os.clock() - now2 < 4)) do
+			while not (not list.v.Parent or not (os.clock() - now2 < 4)) do
 				RunService.Heartbeat:Wait()
 			end
 		end
@@ -50822,11 +50822,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 		local function followMarks(startMark, options)
 			local now = os.clock()
-			local v134 = { v = startMark }
+			local list = { v = startMark }
 			local now2
 
 			while true do
-				if not v134 or not (os.clock() - now < 4) then
+				if not list or not (os.clock() - now < 4) then
 					return
 				else
 					if not RunService.Heartbeat:Wait() then
@@ -50834,15 +50834,15 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					end
 					now2 = os.clock()
 
-					if distanceTo(v134.v.Position, true) > 6 then
-						getHumanoid():MoveTo(v134.v.Position)
+					if distanceTo(list.v.Position, true) > 6 then
+						getHumanoid():MoveTo(list.v.Position)
 					end
 
-					while not (not tracked.precise2[v134.v.ID] or not (not not (distanceTo(v134.v.Position, true) > 6) and os.clock() - now2 < 4)) do
+					while not (not tracked.precise2[list.v.ID] or not (not not (distanceTo(list.v.Position, true) > 6) and os.clock() - now2 < 4)) do
 						RunService.Heartbeat:Wait()
 					end
 
-					local mark = v134.v
+					local mark = list.v
 					local matchCount = 0
 					local totalCount = 0
 					local best = nil
@@ -50868,11 +50868,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					if totalCount > 2 and matchCount == 0 then
 						break
 					end
-					v134 = best
+					list = best
 				end
 			end
 
-			while not (not tracked.precise2[v134.v.ID] or not (os.clock() - now2 < 4)) do
+			while not (not tracked.precise2[list.v.ID] or not (os.clock() - now2 < 4)) do
 				RunService.Heartbeat:Wait()
 			end
 		end
@@ -50880,14 +50880,14 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 		local function fieldCorners()
 			local x = vector.X
 			local z = vector.Z
-			local v133 = position.Z - z / 2
-			local vector2 = Vector3.new(position.X - x / 2, getRootPart().Position.Y, v133)
-			local v134 = position.Z + z / 2
-			local vector3 = Vector3.new(position.X + x / 2, getRootPart().Position.Y, v134)
-			local v135 = position.Z + z / 2
-			local vector4 = Vector3.new(position.X - x / 2, getRootPart().Position.Y, v135)
-			local v136 = position.Z - z / 2
-			local vector5 = Vector3.new(position.X + x / 2, getRootPart().Position.Y, v136)
+			local value = position.Z - z / 2
+			local vector2 = Vector3.new(position.X - x / 2, getRootPart().Position.Y, value)
+			local value2 = position.Z + z / 2
+			local vector3 = Vector3.new(position.X + x / 2, getRootPart().Position.Y, value2)
+			local value3 = position.Z + z / 2
+			local vector4 = Vector3.new(position.X - x / 2, getRootPart().Position.Y, value3)
+			local value4 = position.Z - z / 2
+			local vector5 = Vector3.new(position.X + x / 2, getRootPart().Position.Y, value4)
 			local target3 = distanceTo(vector2) > distanceTo(vector3) and vector2 or vector3
 			local target2 = distanceTo(vector4) > distanceTo(target3) and vector4 or target3
 			local target = distanceTo(vector5) > distanceTo(target2) and vector5 or target2
@@ -51077,16 +51077,16 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			local target = startCorner == 1
 
 			if target then
-				local v138 = position.Z - z / 2 + pattern[4]
-				target = Vector3.new(position.X - x / 2 + pattern[3], getRootPart().Position.Y, v138)
+				local value = position.Z - z / 2 + pattern[4]
+				target = Vector3.new(position.X - x / 2 + pattern[3], getRootPart().Position.Y, value)
 			end
 
 			if not target then
 				target = startCorner == 2
 
 				if target then
-					local v138 = position.Z - z / 2 + pattern[4]
-					target = Vector3.new(position.X + x / 2 - pattern[3], getRootPart().Position.Y, v138)
+					local value = position.Z - z / 2 + pattern[4]
+					target = Vector3.new(position.X + x / 2 - pattern[3], getRootPart().Position.Y, value)
 				end
 			end
 
@@ -51094,8 +51094,8 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				target = startCorner == 3
 
 				if target then
-					local v138 = position.Z + z / 2 - pattern[4]
-					target = Vector3.new(position.X - x / 2 + pattern[3], getRootPart().Position.Y, v138)
+					local value = position.Z + z / 2 - pattern[4]
+					target = Vector3.new(position.X - x / 2 + pattern[3], getRootPart().Position.Y, value)
 				end
 			end
 
@@ -51103,14 +51103,14 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				target = startCorner == 4
 
 				if target then
-					local v138 = position.Z + z / 2 - pattern[4]
-					target = Vector3.new(position.X + x / 2 - pattern[3], getRootPart().Position.Y, v138)
+					local value = position.Z + z / 2 - pattern[4]
+					target = Vector3.new(position.X + x / 2 - pattern[3], getRootPart().Position.Y, value)
 				end
 			end
 
 			if not target then
-				local v138 = position.Z - pattern[2]
-				target = Vector3.new(position.X - pattern[1], getRootPart().Position.Y, v138)
+				local value = position.Z - pattern[2]
+				target = Vector3.new(position.X - pattern[1], getRootPart().Position.Y, value)
 			end
 
 			local function applyMoves(moveString)
@@ -53348,9 +53348,9 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 			end
 
-			local v147, v148, v149
+			local value, value2, value3
 
-			for _, missingIngredient in v147, v148, v149 do
+			for _, missingIngredient in value, value2, value3 do
 				if cfg.toys.progblender then
 					logger.log(logPrefix, "Crafting x" .. count, recipe)
 					logger.log(logPrefix, "Missing x" .. missingIngredient.Amount, missingIngredient.Type)
@@ -53446,8 +53446,8 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			["earn 2 goo badges to use the glue dispenser"] = "Auto Glue Dispenser",
 		}
 
-		toyUse.Do = function(toySelf, name, v141)
-			local toyObject, position2, toyText, toyColor, text2, matchedKey, timeText, timeDigits, hours, minutes, strippedText, colonCount, seconds, now, ok2, ok3, activateButton, text, v155, v156, v157, v158, v159, v160, v161, v162, v163, now2, v164, now3, options, now4, v166, v167, v168, minigameLayer, now5, GuiGrid, v169, now6, now7, ok4, result, now8, ok5, result2
+		toyUse.Do = function(toySelf, name, arg)
+			local toyObject, position2, toyText, toyColor, text2, matchedKey, timeText, timeDigits, hours, minutes, strippedText, colonCount, seconds, now, ok2, ok3, activateButton, text, value, value2, value3, value4, value5, value6, value7, value8, value9, now2, value10, now3, options, now4, value11, value12, value13, minigameLayer, now5, GuiGrid, value14, now6, now7, ok4, result, now8, ok5, result2
 
 			if name == "Ant Pass Dispenser" or name == "Robo Pass Dispenser" then
 				toyObject = workspace.Toys[name]
@@ -53559,7 +53559,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					end
 				end
 
-				if v141 then
+				if arg then
 					return true
 				end
 
@@ -53652,62 +53652,62 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 							setTimer(name, os.time() + 30)
 							return
 						end
-						v155 = findMatch(toySelf.messages, text, true)
+						value = findMatch(toySelf.messages, text, true)
 
-						if v155 then
-							controls[toySelf.messages[v155]].Set(false)
+						if value then
+							controls[toySelf.messages[value]].Set(false)
 							setTimer(name, nil)
 							return
 						end
 
-						v156 = string.gsub(string.gsub(text, "%(%d+ royal jell", ""), "%(rank", "")
-						v157 = string.match(v156, "%(([^)]+)%)")
-						if not v157 then
-							logger.warn(v156, color)
+						value2 = string.gsub(string.gsub(text, "%(%d+ royal jell", ""), "%(rank", "")
+						value3 = string.match(value2, "%(([^)]+)%)")
+						if not value3 then
+							logger.warn(value2, color)
 							return
 						end
-						v158 = string.gsub(v157, "s", "")
-						v159 = nil
-						v160 = nil
-						v161, v162 = string.gsub(v158, ":", "")
+						value4 = string.gsub(value3, "s", "")
+						value5 = nil
+						value6 = nil
+						value7, value8 = string.gsub(value4, ":", "")
 
-						if v162 ~= 2 then
-							if v162 ~= 1 then
-								v163 = string.match(v158, "%d+")
+						if value8 ~= 2 then
+							if value8 ~= 1 then
+								value9 = string.match(value4, "%d+")
 							else
-								local timeMinutes, timeSeconds = string.match(v158, "(%d+):(%d+)")
-								v160 = timeMinutes
-								v163 = timeSeconds
+								local timeMinutes, timeSeconds = string.match(value4, "(%d+):(%d+)")
+								value6 = timeMinutes
+								value9 = timeSeconds
 							end
 						else
-							local timeHours, timeMinutes, timeSeconds = string.match(v158, "(%d+):(%d+):(%d+)")
-							v159 = timeHours
-							v160 = timeMinutes
-							v163 = timeSeconds
+							local timeHours, timeMinutes, timeSeconds = string.match(value4, "(%d+):(%d+):(%d+)")
+							value5 = timeHours
+							value6 = timeMinutes
+							value9 = timeSeconds
 						end
 
 						now2 = os.time()
 
-						if v159 then
-							now2 += tonumber(v159) * 3600
+						if value5 then
+							now2 += tonumber(value5) * 3600
 						end
 
-						if v160 then
-							now2 += tonumber(v160) * 60
+						if value6 then
+							now2 += tonumber(value6) * 60
 						end
 
-						if v163 then
-							now2 += tonumber(v163)
+						if value9 then
+							now2 += tonumber(value9)
 						end
 
 						setTimer(name, now2)
 					else
 						setTimer(name, nil)
-						v164 = 0
+						value10 = 0
 
 						if not (name ~= "Sprout Summoner" or not cfg.sprouts.enabled) then
 							for k in pairs(tracked.sprouts) do
-								v164 += 1
+								value10 += 1
 							end
 						end
 
@@ -53745,11 +53745,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								task.wait(0.2)
 							end
 
-							v166 = farmFor
-							v167 = options
-							v168 = name == "Beesmas Feast" and 10 or name == "Honeyday Candles" and 1
-							v168 = v168 or name == "Samovar" and 16 or name == "Stockings" and 5 or 12
-							v166(v167, v168)
+							value11 = farmFor
+							value12 = options
+							value13 = name == "Beesmas Feast" and 10 or name == "Honeyday Candles" and 1
+							value13 = value13 or name == "Samovar" and 16 or name == "Stockings" and 5 or 12
+							value11(value12, value13)
 							state.stopfasttween = nil
 							if name == "Honey Wreath" then
 								return true
@@ -53817,7 +53817,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 									inventory.time["Ant Pass"] = nil
 								end
 							else
-								v169 = function()
+								value14 = function()
 									local sproutCount = 0
 
 									for k in pairs(tracked.sprouts) do
@@ -53829,11 +53829,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 								now6 = os.clock()
 
-								while v169() <= v164 and os.clock() - now6 < 2 do
+								while value14() <= value10 and os.clock() - now6 < 2 do
 									RunService.Heartbeat:Wait()
 								end
 
-								if v164 < v169() then
+								if value10 < value14() then
 									error("return", 0)
 								end
 							end
@@ -53989,7 +53989,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						end
 					end
 
-					if v141 then
+					if arg then
 						return true
 					end
 
@@ -54080,57 +54080,57 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								setTimer(name, os.time() + 30)
 								return
 							end
-							v155 = findMatch(toySelf.messages, text, true)
+							value = findMatch(toySelf.messages, text, true)
 
-							if v155 then
-								controls[toySelf.messages[v155]].Set(false)
+							if value then
+								controls[toySelf.messages[value]].Set(false)
 								setTimer(name, nil)
 								return
 							end
 
-							v156 = string.gsub(string.gsub(text, "%(%d+ royal jell", ""), "%(rank", "")
-							v157 = string.match(v156, "%(([^)]+)%)")
-							if not v157 then
-								logger.warn(v156, color)
+							value2 = string.gsub(string.gsub(text, "%(%d+ royal jell", ""), "%(rank", "")
+							value3 = string.match(value2, "%(([^)]+)%)")
+							if not value3 then
+								logger.warn(value2, color)
 								return
 							end
-							v158 = string.gsub(v157, "s", "")
-							v159 = nil
-							v160 = nil
-							v161, v162 = string.gsub(v158, ":", "")
+							value4 = string.gsub(value3, "s", "")
+							value5 = nil
+							value6 = nil
+							value7, value8 = string.gsub(value4, ":", "")
 
-							if v162 ~= 2 then
-								if v162 ~= 1 then
-									v163 = string.match(v158, "%d+")
+							if value8 ~= 2 then
+								if value8 ~= 1 then
+									value9 = string.match(value4, "%d+")
 								else
-									v160, v163 = string.match(v158, "(%d+):(%d+)")
+									value6, value9 = string.match(value4, "(%d+):(%d+)")
 								end
 							else
-								v159, v160, v163 = string.match(v158, "(%d+):(%d+):(%d+)")
+								value5, value6, value9 = string.match(value4, "(%d+):(%d+):(%d+)")
 							end
 
 							now2 = os.time()
 
-							if v159 then
-								now2 += tonumber(v159) * 3600
+							if value5 then
+								now2 += tonumber(value5) * 3600
 							end
 
-							if v160 then
-								now2 += tonumber(v160) * 60
+							if value6 then
+								now2 += tonumber(value6) * 60
 							end
 
-							if v163 then
-								now2 += tonumber(v163)
+							if value9 then
+								now2 += tonumber(value9)
 							end
 
 							setTimer(name, now2)
 						else
 							setTimer(name, nil)
-							v164 = 0
+							value10 = 0
 
 							if not (name ~= "Sprout Summoner" or not cfg.sprouts.enabled) then
 								for k in pairs(tracked.sprouts) do
-									v164 += 1
+									value10 += 1
 								end
 							end
 
@@ -54168,10 +54168,10 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 									task.wait(0.2)
 								end
 
-								v166 = farmFor
-								v167 = options
-								v168 = name == "Beesmas Feast" and 10 or name == "Honeyday Candles" and 1
-								v166(v167, v168 or name == "Samovar" and 16 or name == "Stockings" and 5 or 12)
+								value11 = farmFor
+								value12 = options
+								value13 = name == "Beesmas Feast" and 10 or name == "Honeyday Candles" and 1
+								value11(value12, value13 or name == "Samovar" and 16 or name == "Stockings" and 5 or 12)
 								state.stopfasttween = nil
 								if name == "Honey Wreath" then
 									return true
@@ -54238,7 +54238,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 										inventory.time["Ant Pass"] = nil
 									end
 								else
-									v169 = function()
+									value14 = function()
 										local sproutCount = 0
 
 										for k in pairs(tracked.sprouts) do
@@ -54250,11 +54250,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 									now6 = os.clock()
 
-									while v169() <= v164 and os.clock() - now6 < 2 do
+									while value14() <= value10 and os.clock() - now6 < 2 do
 										RunService.Heartbeat:Wait()
 									end
 
-									if v164 < v169() then
+									if value10 < value14() then
 										error("return", 0)
 									end
 								end
@@ -54298,7 +54298,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			end
 		end
 
-		useDispensers = function(v139)
+		useDispensers = function(arg)
 			local value = localPlayer.CoreStats.Honey.Value
 			local bees = state.bees
 
@@ -54414,7 +54414,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 			end
 
-			if bees >= 30 and not (not cfg.memorymatch.night and v139 ~= "Match" or not (not not (value > 5000000) and (Lighting.ClockTime >= 19 or not not (Lighting.ClockTime <= 5)) and (cfg.vars.movement == "Tween" or not not (getHumanoid().WalkSpeed <= 50)))) then
+			if bees >= 30 and not (not cfg.memorymatch.night and arg ~= "Match" or not (not not (value > 5000000) and (Lighting.ClockTime >= 19 or not not (Lighting.ClockTime <= 5)) and (cfg.vars.movement == "Tween" or not not (getHumanoid().WalkSpeed <= 50)))) then
 				toyUse:Do("Night Memory Match")
 			end
 
@@ -54422,7 +54422,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				toyUse:Do("Free Robo Pass Dispenser")
 			end
 
-			if bees >= 10 and not (not cfg.memorymatch.basic and v139 ~= "Match" or not (value > 25000)) then
+			if bees >= 10 and not (not cfg.memorymatch.basic and arg ~= "Match" or not (value > 25000)) then
 				toyUse:Do("Memory Match")
 			end
 
@@ -54577,7 +54577,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 			end
 
-			if bees >= 15 and not (not cfg.memorymatch.mega and v139 ~= "Match" or not (value > 500000)) then
+			if bees >= 15 and not (not cfg.memorymatch.mega and arg ~= "Match" or not (value > 500000)) then
 				toyUse:Do("Mega Memory Match")
 			end
 
@@ -54597,7 +54597,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				nectarCondenser("Nectar Condenser")
 			end
 
-			if not (bees ~= 35 or not cfg.memorymatch.extreme and v139 ~= "Match" or not (value > 25000000)) then
+			if not (bees ~= 35 or not cfg.memorymatch.extreme and arg ~= "Match" or not (value > 25000000)) then
 				toyUse:Do("Extreme Memory Match")
 			end
 
@@ -54619,10 +54619,10 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 		local function instantConvert()
 			if cfg.convert.instantType["Honey Wreath"] then
 				if (not gameGui.RBChallenge.Visible or gameGui.RBChallenge.Position.X.Scale > 0.9) and not (not toyUse:Do("Honey Wreath", true) or not (not cfg.convert.convertField or not ((not currentField or getFieldAt(getRootPart().Position) ~= currentField) and not (distanceTo(workspace.Toys["Honey Wreath"].Platform.Position) < 20)))) then
-					local v123 = toyUse:Do("Honey Wreath")
+					local value = toyUse:Do("Honey Wreath")
 
-					if v123 ~= "error" then
-						if v123 then
+					if value ~= "error" then
+						if value then
 							return true
 						end
 					else
@@ -54671,10 +54671,10 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			end
 		end
 
-		shouldConvert = function(v124, v125)
+		shouldConvert = function(arg, arg2)
 			local bagFill = bagPercent()
 
-			if not (not v124 or not cfg.convert.convertHoney or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
+			if not (not arg or not cfg.convert.convertHoney or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
 				local ok25 = not cache.Materials.coconut
 
 				if not ok25 then
@@ -54726,10 +54726,10 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 			end
 
-			local ok19, coconut, ok18, microconverter, v127, ok15, whirligig, lastfullbag, character, ok16, whirligig2, lastfullbag2
+			local ok19, coconut, ok18, microconverter, value, ok15, whirligig, lastfullbag, character, ok16, whirligig2, lastfullbag2
 
-			if not v124 then
-				if not (not v124 or not cfg.convert.convertHoney or not cfg.convert.instantToggle or not cfg.convert.instantType or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
+			if not arg then
+				if not (not arg or not cfg.convert.convertHoney or not cfg.convert.instantToggle or not cfg.convert.instantType or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
 					ok19 = not cache.Materials.coconut
 
 					if not ok19 then
@@ -54746,19 +54746,19 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						end
 
 						if ok18 then
-							v127 = instantConvert()
-							if v127 then
+							value = instantConvert()
+							if value then
 								return shouldConvert(true)
 							end
 
-							if v127 == "continue" then
+							if value == "continue" then
 								return
 							end
 						end
 					end
 				end
 
-				if not (not v125 or not (bagFill > 0 or not (not cfg.convert.convertHiveBalloon or not getHiveBalloon() or not cfg.convert.alwaysConvertBalloon and (not cfg.convert.convert6xBubbleBloat or not buffs.BubbleBloat or not (buffs.BubbleBloat.Size.Y.Scale > 0.8))))) then
+				if not (not arg2 or not (bagFill > 0 or not (not cfg.convert.convertHiveBalloon or not getHiveBalloon() or not cfg.convert.alwaysConvertBalloon and (not cfg.convert.convert6xBubbleBloat or not buffs.BubbleBloat or not (buffs.BubbleBloat.Size.Y.Scale > 0.8))))) then
 					return true
 				end
 
@@ -54773,7 +54773,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 							return true
 						end
 
-						if not (not v124 or not cfg.convert.autoHoneyMask) then
+						if not (not arg or not cfg.convert.autoHoneyMask) then
 							local character2 = localPlayer.Character
 
 							if not character2:FindFirstChild("Honey Mask") then
@@ -54781,7 +54781,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 							end
 						end
 
-						if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType) then
+						if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType) then
 							if cfg.convert.instantType.Whirligig then
 								ok15 = not cache.Materials.whirligig
 
@@ -54820,7 +54820,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								return true
 							end
 
-							if not (not v124 or not cfg.convert.autoHoneyMask) then
+							if not (not arg or not cfg.convert.autoHoneyMask) then
 								character = localPlayer.Character
 
 								if not character:FindFirstChild("Honey Mask") then
@@ -54828,7 +54828,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								end
 							end
 
-							if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+							if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 								ok16 = not cache.Materials.whirligig
 
 								if not ok16 then
@@ -54866,7 +54866,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 										return true
 									end
 
-									if not (not v124 or not cfg.convert.autoHoneyMask) then
+									if not (not arg or not cfg.convert.autoHoneyMask) then
 										character = localPlayer.Character
 
 										if not character:FindFirstChild("Honey Mask") then
@@ -54874,7 +54874,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 										end
 									end
 
-									if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+									if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 										ok16 = not cache.Materials.whirligig
 
 										if not ok16 then
@@ -54908,7 +54908,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								return true
 							end
 
-							if not (not v124 or not cfg.convert.autoHoneyMask) then
+							if not (not arg or not cfg.convert.autoHoneyMask) then
 								character = localPlayer.Character
 
 								if not character:FindFirstChild("Honey Mask") then
@@ -54916,7 +54916,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 								end
 							end
 
-							if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+							if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 								ok16 = not cache.Materials.whirligig
 
 								if not ok16 then
@@ -54977,7 +54977,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				if ok20 then
 					if not buffs.FestiveBlessing and (not cfg.autofarm.autopopstar or not buffs["Pop Star Aura"] and not buffs["Tidal Surge"]) then
 						if (not cfg.autofarm.autoscorchingstar or not buffs["Scorching Star Aura"]) and (not cfg.autofarm.autogummystar or not buffs["Gummy Star Aura"]) then
-							if not (not v124 or not cfg.convert.convertHoney or not cfg.convert.instantToggle or not cfg.convert.instantType or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
+							if not (not arg or not cfg.convert.convertHoney or not cfg.convert.instantToggle or not cfg.convert.instantType or not (not buffs.FestiveBlessing and not not (cfg.convert.convertHoneyAt <= bagFill))) then
 								ok19 = not cache.Materials.coconut
 
 								if not ok19 then
@@ -54994,19 +54994,19 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 									end
 
 									if ok18 then
-										v127 = instantConvert()
-										if v127 then
+										value = instantConvert()
+										if value then
 											return shouldConvert(true)
 										end
 
-										if v127 == "continue" then
+										if value == "continue" then
 											return
 										end
 									end
 								end
 							end
 
-							if not (not v125 or not (bagFill > 0 or not (not cfg.convert.convertHiveBalloon or not getHiveBalloon() or not cfg.convert.alwaysConvertBalloon and (not cfg.convert.convert6xBubbleBloat or not buffs.BubbleBloat or not (buffs.BubbleBloat.Size.Y.Scale > 0.8))))) then
+							if not (not arg2 or not (bagFill > 0 or not (not cfg.convert.convertHiveBalloon or not getHiveBalloon() or not cfg.convert.alwaysConvertBalloon and (not cfg.convert.convert6xBubbleBloat or not buffs.BubbleBloat or not (buffs.BubbleBloat.Size.Y.Scale > 0.8))))) then
 								return true
 							end
 
@@ -55019,13 +55019,13 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 										return true
 									end
 
-									if not (not v124 or not cfg.convert.autoHoneyMask) then
+									if not (not arg or not cfg.convert.autoHoneyMask) then
 										if not localPlayer.Character:FindFirstChild("Honey Mask") then
 											equipAccessory("Honey Mask")
 										end
 									end
 
-									if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType) then
+									if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType) then
 										if cfg.convert.instantType.Whirligig then
 											ok15 = not cache.Materials.whirligig
 
@@ -55064,7 +55064,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 											return true
 										end
 
-										if not (not v124 or not cfg.convert.autoHoneyMask) then
+										if not (not arg or not cfg.convert.autoHoneyMask) then
 											character = localPlayer.Character
 
 											if not character:FindFirstChild("Honey Mask") then
@@ -55072,7 +55072,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 											end
 										end
 
-										if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+										if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 											ok16 = not cache.Materials.whirligig
 
 											if not ok16 then
@@ -55107,7 +55107,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 												return true
 											end
 
-											if not (not v124 or not cfg.convert.autoHoneyMask) then
+											if not (not arg or not cfg.convert.autoHoneyMask) then
 												character = localPlayer.Character
 
 												if not character:FindFirstChild("Honey Mask") then
@@ -55115,7 +55115,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 												end
 											end
 
-											if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+											if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 												ok16 = not cache.Materials.whirligig
 
 												if not ok16 then
@@ -55149,13 +55149,13 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 										return true
 									end
 
-									if not (not v124 or not cfg.convert.autoHoneyMask) then
+									if not (not arg or not cfg.convert.autoHoneyMask) then
 										if not localPlayer.Character:FindFirstChild("Honey Mask") then
 											equipAccessory("Honey Mask")
 										end
 									end
 
-									if not (not v124 or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
+									if not (not arg or not cfg.convert.instantToggle or not cfg.convert.instantType or not cfg.convert.instantType.Whirligig) then
 										ok16 = not cache.Materials.whirligig
 
 										if not ok16 then
@@ -55220,7 +55220,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				if not RunService.Heartbeat:Wait() then
 					break
 				end
-				local v124 = false
+				local flag = false
 
 				local ok2, result = pcall(function()
 					closePopups()
@@ -55261,7 +55261,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					local activateResult = input:pressActivateButton()
 
 					if activateResult == "To Make Honey, Collect Pollen From Flower Fields" then
-						v124 = true
+						flag = true
 					elseif activateResult == "Stop Making Honey" then
 						if cfg.convert.festivegift then
 							for k in pairs(tracked.tokens) do
@@ -55301,7 +55301,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					task.wait(1)
 					task.wait(1)
 					reportStatus(2)
-				elseif not v124 then
+				elseif not flag then
 					task.wait(1)
 					reportStatus(2)
 				else
@@ -55369,7 +55369,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 
 					local ok, result = pcall(function()
 						if not cfg.convert.convertHoney and not cfg.convert.convertHiveBalloon or not shouldConvert(true) then
-							local v126 = nil
+							local value = nil
 
 							if firefly then
 								local field = getFieldAt(firefly.Position)
@@ -55391,11 +55391,11 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 									now = os.clock()
 									seenFireflies[firefly] = now
 									firefly = findFirefly(seenFireflies)
-									v126 = true
+									value = true
 								end
 							end
 
-							if not v126 then
+							if not value then
 								goToField()
 
 								if cfg.combat.avoidmobs then
@@ -55421,8 +55421,8 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 	end
 end
 
-local function findPuffshroom(v118, v119, v120)
-	if not v118 and not (not cfg.puffshrooms.maintain or not buffs.PuffBlessing or buffs.PuffBlessing.Text.Text ~= "x100" or not (buffs.PuffBlessing.Percent.Size.Y.Scale > 0.3)) then
+local function findPuffshroom(arg, arg2, arg3)
+	if not arg and not (not cfg.puffshrooms.maintain or not buffs.PuffBlessing or buffs.PuffBlessing.Text.Text ~= "x100" or not (buffs.PuffBlessing.Percent.Size.Y.Scale > 0.3)) then
 		return
 	end
 	local bestPuffshroom = nil
@@ -55448,7 +55448,7 @@ local function findPuffshroom(v118, v119, v120)
 
 				if NumberLabel then
 					local text = NumberLabel.Text
-					local v123, colonCount = string.gsub(text, ":", "")
+					local value, colonCount = string.gsub(text, ":", "")
 
 					if colonCount > 0 or string.find(text, "s") then
 						local minutesPart = nil
@@ -55488,8 +55488,8 @@ local function findPuffshroom(v118, v119, v120)
 				continue
 			end
 
-			if not (not v120 and (cfg.puffshrooms.rarity == "Common" or not ((cfg.puffshrooms.rarity ~= "Rare" or puffRarity == "Common") and (cfg.puffshrooms.rarity ~= "Epic" or puffRarity == "Common" or puffRarity == "Rare")))) then
-				if not v120 or not (v119 ~= k and not ((v120 ~= "Common" or puffRarity == "Common") and (v120 ~= "Rare" or puffRarity == "Common" or puffRarity == "Rare") and (v120 ~= "Epic" or puffRarity == "Common" or puffRarity == "Rare" or puffRarity == "Epic") and (v120 ~= "Legendary" or puffRarity == "Common" or puffRarity == "Rare" or puffRarity == "Epic" or puffRarity == "Legendary"))) then
+			if not (not arg3 and (cfg.puffshrooms.rarity == "Common" or not ((cfg.puffshrooms.rarity ~= "Rare" or puffRarity == "Common") and (cfg.puffshrooms.rarity ~= "Epic" or puffRarity == "Common" or puffRarity == "Rare")))) then
+				if not arg3 or not (arg2 ~= k and not ((arg3 ~= "Common" or puffRarity == "Common") and (arg3 ~= "Rare" or puffRarity == "Common" or puffRarity == "Rare") and (arg3 ~= "Epic" or puffRarity == "Common" or puffRarity == "Rare" or puffRarity == "Epic") and (arg3 ~= "Legendary" or puffRarity == "Common" or puffRarity == "Rare" or puffRarity == "Epic" or puffRarity == "Legendary"))) then
 					continue
 				end
 				return true
@@ -55507,7 +55507,7 @@ local function findPuffshroom(v118, v119, v120)
 				bestPuffshroom = { d = distance, rarity = puffRarity, lvl = puffLevel, v = k }
 			elseif puffRarity ~= "Mythic" or not (bestPuffshroom.rarity == "Common" or bestPuffshroom.rarity == "Rare" or bestPuffshroom.rarity == "Epic" or bestPuffshroom.rarity == "Legendary") then
 				if puffRarity == bestPuffshroom.rarity then
-					local priorityfields = v118 == field.Name or cfg.puffshrooms.priorityfields and cfg.puffshrooms.priorityfields[field.Name]
+					local priorityfields = arg == field.Name or cfg.puffshrooms.priorityfields and cfg.puffshrooms.priorityfields[field.Name]
 
 					if not ((not priorityfields or not (not bestPuffshroom.priofield or not cfg.puffshrooms.highlvlpriority and distance < bestPuffshroom.d or not (not cfg.puffshrooms.highlvlpriority or not (bestPuffshroom.lvl < puffLevel) and (puffLevel ~= bestPuffshroom.lvl or not (distance < bestPuffshroom.d))))) and not (not priorityfields and not bestPuffshroom.priofield and (not cfg.puffshrooms.highlvlpriority and distance < bestPuffshroom.d or not (not cfg.puffshrooms.highlvlpriority or not (bestPuffshroom.lvl < puffLevel) and (puffLevel ~= bestPuffshroom.lvl or not (distance < bestPuffshroom.d)))))) then
 						bestPuffshroom = { d = distance, rarity = puffRarity, lvl = puffLevel, v = k, priofield = priorityfields }
@@ -55527,8 +55527,8 @@ end
 
 local farmPuffshroom
 
-farmPuffshroom = function(v119)
-	local puffshroom, puffRarity, puffLevel = findPuffshroom(v119)
+farmPuffshroom = function(arg)
+	local puffshroom, puffRarity, puffLevel = findPuffshroom(arg)
 	if not puffshroom then
 		return
 	end
@@ -55578,7 +55578,7 @@ farmPuffshroom = function(v119)
 						exitTo = 1
 						break
 					elseif not cfg.convert.convertHoney and not cfg.convert.convertHiveBalloon or not shouldConvert(true) then
-						if not findPuffshroom(v119, puffshroom, puffRarity) then
+						if not findPuffshroom(arg, puffshroom, puffRarity) then
 							if not (not cfg.convert.autoHoneyMask and not cfg.combat.demonmask or not (cfg.vars.movement == "Tween" or cfg.convert.defaultMask ~= "Demon Mask")) then
 								if not localPlayer.Character:FindFirstChild(cfg.convert.defaultMask) then
 									equipAccessory(cfg.convert.defaultMask)
@@ -55614,7 +55614,7 @@ farmPuffshroom = function(v119)
 			end
 
 			if exitTo ~= 1 then
-				farmPuffshroom(v119)
+				farmPuffshroom(arg)
 				return
 			end
 
@@ -55743,7 +55743,7 @@ do
 							skipDialog(npc, true)
 						else
 							local questionBox = localPlayer.PlayerGui.ScreenGui.QuestionBox
-							local now, v122 = os.clock()
+							local now, value = os.clock()
 							local exitTo = nil
 							local text
 
@@ -55776,7 +55776,7 @@ do
 													local daysPart = nil
 													local hoursPart = nil
 													local minutesPart = nil
-													local v128, colonCount = string.gsub(timeDigits, ":", "")
+													local value2, colonCount = string.gsub(timeDigits, ":", "")
 													local secondsPart
 
 													if colonCount == 3 then
@@ -55811,7 +55811,7 @@ do
 
 													setTimer("Stick Bug", now2)
 													option1 = optionFrame2.Option3
-													v122 = true
+													value = true
 													input:pressButton(option1, true, true)
 													continue
 												end
@@ -55834,7 +55834,7 @@ do
 								return
 							end
 
-							if not v122 then
+							if not value then
 								local now2 = os.clock()
 
 								while (not sbChallengeInfo.Visible or sbChallengeInfo.Position.X.Scale > 0.9) and os.clock() - now2 < 4 do
@@ -55861,8 +55861,8 @@ do
 			end
 
 			local humanoidRootPart = nil
-			local v123 = nil
-			local v124 = "d"
+			local value = nil
+			local text = "d"
 
 			for k in pairs(tracked.stickbug) do
 				if not (not k:FindFirstChild("HumanoidRootPart") or not string.find(k.Name, "Stick Bug")) then
@@ -55921,14 +55921,14 @@ do
 
 								if cfg.stickbug.loot then
 									local lootOptions = { loot = true, loot2 = true }
-									v123 = true
+									value = true
 									local now4 = os.clock()
 
 									while not (not pickTarget(lootOptions) or not (os.clock() - now4 < 10)) do
 										RunService.Heartbeat:Wait()
 									end
 
-									v123 = nil
+									value = nil
 								end
 
 								if not (not (os.clock() - now2 < 6) or cfg.vars.movement ~= "Tween") then
@@ -55968,21 +55968,21 @@ do
 				if not (not label or not humanoidRootPart) then
 					reportStatus(3)
 					setField(label)
-					local v125 = humanoidRootPart.Position.Y < 300 and getFieldAt(humanoidRootPart.Position) == currentField
-					local v126 = true
+					local value2 = humanoidRootPart.Position.Y < 300 and getFieldAt(humanoidRootPart.Position) == currentField
+					local flag = true
 
 					for k in pairs(tracked.stickbug) do
 						local HumanoidRootPart = k:FindFirstChild("HumanoidRootPart")
 
 						if not (not HumanoidRootPart or getFieldAt(HumanoidRootPart.Position) ~= currentField) then
-							v126 = nil
+							flag = nil
 						end
 					end
 
-					if not v126 then
+					if not flag then
 						local ok2, y, position2, position3
 
-						if not (not v125 or cfg.stickbug.circle) then
+						if not (not value2 or cfg.stickbug.circle) then
 							local ok3 = distanceTo(humanoidRootPart.Position + Vector3.new(0, 20, 25)) > 30
 
 							if not ok3 then
@@ -55993,7 +55993,7 @@ do
 							if ok3 then
 								platform.Position = humanoidRootPart.Position + Vector3.new(0, 20, 25)
 								goTo(platform.Position + Vector3.new(0, 10, 0), "Stickbug Platform")
-							elseif not v125 and not cfg.stickbug.circle then
+							elseif not value2 and not cfg.stickbug.circle then
 								ok2 = distanceTo(position + Vector3.new(0, 20, 25)) > 30
 
 								if ok2 then
@@ -56006,24 +56006,24 @@ do
 									if ok2 then
 										platform.Position = position + Vector3.new(0, 20, 25)
 										goTo(platform.Position + Vector3.new(0, 10, 0), "Sticknymph Platform")
-									elseif not v125 or not cfg.stickbug.circle then
-										if not v125 and cfg.stickbug.circle then
+									elseif not value2 or not cfg.stickbug.circle then
+										if not value2 and cfg.stickbug.circle then
 											position2 = nil
 
-											if v124 == "d" then
+											if text == "d" then
 												position2 = position + Vector3.new(-20, 20, 0)
-												v124 = "l"
-											elseif v124 == "l" then
+												text = "l"
+											elseif text == "l" then
 												position2 = position + Vector3.new(0, 20, -20)
-												v124 = "u"
-											elseif v124 ~= "u" then
-												if v124 == "r" then
+												text = "u"
+											elseif text ~= "u" then
+												if text == "r" then
 													position2 = position + Vector3.new(0, 20, 20)
-													v124 = "d"
+													text = "d"
 												end
 											else
 												position2 = position + Vector3.new(20, 20, 0)
-												v124 = "r"
+												text = "r"
 											end
 
 											platform.Position = position2
@@ -56032,44 +56032,44 @@ do
 									else
 										position3 = nil
 
-										if v124 == "d" then
+										if text == "d" then
 											position3 = humanoidRootPart.Position + Vector3.new(-20, 20, 0)
-											v124 = "l"
-										elseif v124 == "l" then
+											text = "l"
+										elseif text == "l" then
 											position3 = humanoidRootPart.Position + Vector3.new(0, 20, -20)
-											v124 = "u"
-										elseif v124 ~= "u" then
-											if v124 == "r" then
+											text = "u"
+										elseif text ~= "u" then
+											if text == "r" then
 												position3 = humanoidRootPart.Position + Vector3.new(0, 20, 20)
-												v124 = "d"
+												text = "d"
 											end
 										else
 											position3 = humanoidRootPart.Position + Vector3.new(20, 20, 0)
-											v124 = "r"
+											text = "r"
 										end
 
 										platform.Position = position3
 										goTo(platform.Position, "Stickbug Platform", true)
 									end
 								end
-							elseif not v125 or not cfg.stickbug.circle then
-								if not v125 and cfg.stickbug.circle then
+							elseif not value2 or not cfg.stickbug.circle then
+								if not value2 and cfg.stickbug.circle then
 									position2 = nil
 
-									if v124 == "d" then
+									if text == "d" then
 										position2 = position + Vector3.new(-20, 20, 0)
-										v124 = "l"
-									elseif v124 == "l" then
+										text = "l"
+									elseif text == "l" then
 										position2 = position + Vector3.new(0, 20, -20)
-										v124 = "u"
-									elseif v124 ~= "u" then
-										if v124 == "r" then
+										text = "u"
+									elseif text ~= "u" then
+										if text == "r" then
 											position2 = position + Vector3.new(0, 20, 20)
-											v124 = "d"
+											text = "d"
 										end
 									else
 										position2 = position + Vector3.new(20, 20, 0)
-										v124 = "r"
+										text = "r"
 									end
 
 									platform.Position = position2
@@ -56078,26 +56078,26 @@ do
 							else
 								position3 = nil
 
-								if v124 == "d" then
+								if text == "d" then
 									position3 = humanoidRootPart.Position + Vector3.new(-20, 20, 0)
-									v124 = "l"
-								elseif v124 == "l" then
+									text = "l"
+								elseif text == "l" then
 									position3 = humanoidRootPart.Position + Vector3.new(0, 20, -20)
-									v124 = "u"
-								elseif v124 ~= "u" then
-									if v124 == "r" then
+									text = "u"
+								elseif text ~= "u" then
+									if text == "r" then
 										position3 = humanoidRootPart.Position + Vector3.new(0, 20, 20)
-										v124 = "d"
+										text = "d"
 									end
 								else
 									position3 = humanoidRootPart.Position + Vector3.new(20, 20, 0)
-									v124 = "r"
+									text = "r"
 								end
 
 								platform.Position = position3
 								goTo(platform.Position, "Stickbug Platform", true)
 							end
-						elseif not v125 and not cfg.stickbug.circle then
+						elseif not value2 and not cfg.stickbug.circle then
 							ok2 = distanceTo(position + Vector3.new(0, 20, 25)) > 30
 
 							if ok2 then
@@ -56110,24 +56110,24 @@ do
 								if ok2 then
 									platform.Position = position + Vector3.new(0, 20, 25)
 									goTo(platform.Position + Vector3.new(0, 10, 0), "Sticknymph Platform")
-								elseif not v125 or not cfg.stickbug.circle then
-									if not v125 and cfg.stickbug.circle then
+								elseif not value2 or not cfg.stickbug.circle then
+									if not value2 and cfg.stickbug.circle then
 										position2 = nil
 
-										if v124 == "d" then
+										if text == "d" then
 											position2 = position + Vector3.new(-20, 20, 0)
-											v124 = "l"
-										elseif v124 == "l" then
+											text = "l"
+										elseif text == "l" then
 											position2 = position + Vector3.new(0, 20, -20)
-											v124 = "u"
-										elseif v124 ~= "u" then
-											if v124 == "r" then
+											text = "u"
+										elseif text ~= "u" then
+											if text == "r" then
 												position2 = position + Vector3.new(0, 20, 20)
-												v124 = "d"
+												text = "d"
 											end
 										else
 											position2 = position + Vector3.new(20, 20, 0)
-											v124 = "r"
+											text = "r"
 										end
 
 										platform.Position = position2
@@ -56136,44 +56136,44 @@ do
 								else
 									position3 = nil
 
-									if v124 == "d" then
+									if text == "d" then
 										position3 = humanoidRootPart.Position + Vector3.new(-20, 20, 0)
-										v124 = "l"
-									elseif v124 == "l" then
+										text = "l"
+									elseif text == "l" then
 										position3 = humanoidRootPart.Position + Vector3.new(0, 20, -20)
-										v124 = "u"
-									elseif v124 ~= "u" then
-										if v124 == "r" then
+										text = "u"
+									elseif text ~= "u" then
+										if text == "r" then
 											position3 = humanoidRootPart.Position + Vector3.new(0, 20, 20)
-											v124 = "d"
+											text = "d"
 										end
 									else
 										position3 = humanoidRootPart.Position + Vector3.new(20, 20, 0)
-										v124 = "r"
+										text = "r"
 									end
 
 									platform.Position = position3
 									goTo(platform.Position, "Stickbug Platform", true)
 								end
 							end
-						elseif not v125 or not cfg.stickbug.circle then
-							if not v125 and cfg.stickbug.circle then
+						elseif not value2 or not cfg.stickbug.circle then
+							if not value2 and cfg.stickbug.circle then
 								position2 = nil
 
-								if v124 == "d" then
+								if text == "d" then
 									position2 = position + Vector3.new(-20, 20, 0)
-									v124 = "l"
-								elseif v124 == "l" then
+									text = "l"
+								elseif text == "l" then
 									position2 = position + Vector3.new(0, 20, -20)
-									v124 = "u"
-								elseif v124 ~= "u" then
-									if v124 == "r" then
+									text = "u"
+								elseif text ~= "u" then
+									if text == "r" then
 										position2 = position + Vector3.new(0, 20, 20)
-										v124 = "d"
+										text = "d"
 									end
 								else
 									position2 = position + Vector3.new(20, 20, 0)
-									v124 = "r"
+									text = "r"
 								end
 
 								platform.Position = position2
@@ -56182,20 +56182,20 @@ do
 						else
 							position3 = nil
 
-							if v124 == "d" then
+							if text == "d" then
 								position3 = humanoidRootPart.Position + Vector3.new(-20, 20, 0)
-								v124 = "l"
-							elseif v124 == "l" then
+								text = "l"
+							elseif text == "l" then
 								position3 = humanoidRootPart.Position + Vector3.new(0, 20, -20)
-								v124 = "u"
-							elseif v124 ~= "u" then
-								if v124 == "r" then
+								text = "u"
+							elseif text ~= "u" then
+								if text == "r" then
 									position3 = humanoidRootPart.Position + Vector3.new(0, 20, 20)
-									v124 = "d"
+									text = "d"
 								end
 							else
 								position3 = humanoidRootPart.Position + Vector3.new(20, 20, 0)
-								v124 = "r"
+								text = "r"
 							end
 
 							platform.Position = position3
@@ -56263,7 +56263,7 @@ do
 							farmOptions.range = 20
 						end
 
-						if not v123 then
+						if not value then
 							farmOptions.skipoverlap = true
 						else
 							farmOptions.loot = true
@@ -56281,7 +56281,7 @@ do
 	end
 
 	local function findSprout()
-		local v123 = {}
+		local list = {}
 
 		for k in pairs(tracked.sprouts) do
 			local name = k.BrickColor.Name
@@ -56294,21 +56294,21 @@ do
 				logger.log("Sprout: Cannot farm in Coconut Field: Coconut Crab is alive")
 				tracked.sprouts[k] = nil
 			elseif not (field.Name ~= cfg.autofarm.field1 and not (not cfg.sprouts.rarity3 or not ((sproutType ~= "Basic" or cfg.sprouts.rarity3.Basic) and (sproutType ~= "Rare" or cfg.sprouts.rarity3.Rare) and (sproutType ~= "Moon" or cfg.sprouts.rarity3.Moon) and (sproutType ~= "Gummy" or cfg.sprouts.rarity3.Gummy) and (sproutType ~= "Epic+" or cfg.sprouts.rarity3["Epic+"])))) then
-				if not v123.rarity then
-					v123 = { rarity = sproutType, v = k, field = field }
-				elseif not (sproutType ~= "Rare" or v123.rarity ~= "Basic") then
-					v123 = { rarity = sproutType, v = k, field = field }
-				elseif sproutType ~= "Moon" or not (v123.rarity == "Basic" or v123.rarity == "Rare") then
-					if not (sproutType ~= "Epic" or not (v123.rarity == "Basic" or v123.rarity == "Rare" or v123.rarity == "Moon")) then
-						v123 = { rarity = sproutType, v = k, field = field }
+				if not list.rarity then
+					list = { rarity = sproutType, v = k, field = field }
+				elseif not (sproutType ~= "Rare" or list.rarity ~= "Basic") then
+					list = { rarity = sproutType, v = k, field = field }
+				elseif sproutType ~= "Moon" or not (list.rarity == "Basic" or list.rarity == "Rare") then
+					if not (sproutType ~= "Epic" or not (list.rarity == "Basic" or list.rarity == "Rare" or list.rarity == "Moon")) then
+						list = { rarity = sproutType, v = k, field = field }
 					end
 				else
-					v123 = { rarity = sproutType, v = k, field = field }
+					list = { rarity = sproutType, v = k, field = field }
 				end
 			end
 		end
 
-		return v123.v, v123.rarity, v123.field
+		return list.v, list.rarity, list.field
 	end
 
 	local farmSprouts
@@ -56512,8 +56512,8 @@ do
 			end
 
 			local canKillCommando = cfg.combat.killcommando and not mobCooldown(monsterSpawners["Commando Chick"])
-			local v130 = nil
-			local v131 = nil
+			local value = nil
+			local value2 = nil
 
 			if getHumanoid().Health ~= 0 then
 				if canKillCommando then
@@ -56522,7 +56522,7 @@ do
 				end
 				local now = os.clock()
 
-				while not v130 and os.clock() - now < 4 do
+				while not value and os.clock() - now < 4 do
 					if not RunService.Heartbeat:Wait() then
 						break
 					end
@@ -56537,14 +56537,14 @@ do
 						end
 
 						if not (not HumanoidRootPart or not k.Parent) then
-							v131 = true
-							v130 = k
+							value2 = true
+							value = k
 							break
 						end
 					end
 				end
 
-				if v131 then
+				if value2 then
 					killCommando()
 				end
 
@@ -56803,7 +56803,7 @@ do
 		end
 	end
 
-	local function killMondo(v126, v127)
+	local function killMondo(arg, arg2)
 		local mondo = tracked.mondo
 
 		if not mondo and cfg.combat.mondoprep then
@@ -56867,7 +56867,7 @@ do
 			return
 		end
 
-		if not v126 and cfg.combat.mondochicktime < 15 then
+		if not arg and cfg.combat.mondochicktime < 15 then
 			local scale = nil
 
 			for _, child in ipairs(mondo.Head.GuiAttachment.MonsterGui:GetChildren()) do
@@ -56891,7 +56891,7 @@ do
 		reportStatus(3)
 		setField("Mountain Top Field")
 
-		if not v126 then
+		if not arg then
 			logger.log("Killing Mondo Chick")
 		end
 
@@ -56927,7 +56927,7 @@ do
 						avoidList[k] = avoidRadius
 					end
 
-					if v127 then
+					if arg2 then
 						for k in pairs(tracked.cogs) do
 							if k:FindFirstChild("Body") then
 								avoidList[k.Body] = 20
@@ -56962,7 +56962,7 @@ do
 					end
 
 					farmStep({ avoid = avoidList, skipoverlap = true })
-					if not v126 then
+					if not arg then
 						continue
 					end
 				end
@@ -56976,7 +56976,7 @@ do
 		end
 
 		if not cfg.combat.lootmondo then
-			if not v126 then
+			if not arg then
 				local stats = discord.stats
 				stats["Total Boss Kills"] = stats["Total Boss Kills"] + 1
 			end
@@ -56993,11 +56993,11 @@ do
 		end
 	end
 
-	local function killStumpSnail(v127)
+	local function killStumpSnail(arg)
 		if not ((not cfg.puffshrooms.enabled or not findPuffshroom()) and (not cfg.sprouts.enabled or not findSprout()) and not mobCooldown(monsterSpawners.StumpSnail)) then
 			return
 		end
-		local stumpSnail = not v127 and cfg.combat.demonmask and cfg.combat.dmwhitelist and cfg.combat.dmwhitelist["Stump Snail"]
+		local stumpSnail = not arg and cfg.combat.demonmask and cfg.combat.dmwhitelist and cfg.combat.dmwhitelist["Stump Snail"]
 
 		if stumpSnail then
 			if not localPlayer.Character:FindFirstChild("Demon Mask") then
@@ -57047,31 +57047,31 @@ do
 		error("return", 0)
 	end
 
-	local v127, v128, v129
+	local value, value2, value3
 
 	do
-		local function v130(v131, v132, v133)
-			if v132 then
+		local function fn(arg, arg2, arg3)
+			if arg2 then
 				for k in pairs(tracked.clouds) do
 					local Plane = k:FindFirstChild("Plane")
-					if not Plane or not ((v132 - Plane.Position).magnitude < 10) then
+					if not Plane or not ((arg2 - Plane.Position).magnitude < 10) then
 						continue
 					end
 					return true
 				end
 			end
 
-			if not v133 then
+			if not arg3 then
 				for k in pairs(tracked.windymob) do
 					local value = k.Level.Value
-					if cfg.combat.windymin <= value and value <= cfg.combat.windymax and (not v131 or getFieldAt(k.HumanoidRootPart.Position) == v131) then
+					if cfg.combat.windymin <= value and value <= cfg.combat.windymax and (not arg or getFieldAt(k.HumanoidRootPart.Position) == arg) then
 						return true
 					end
 				end
 			end
 		end
 
-		v127 = function()
+		value = function()
 			local combat = cfg.combat
 			local bees = state.bees
 
@@ -57096,9 +57096,9 @@ do
 
 					logger.log("Killing King Beetle")
 					goTo(Vector3.new(182, 9, 150), "King Beetle")
-					local now, v131 = os.clock()
+					local now, value4 = os.clock()
 
-					while not v131 and os.clock() - now < 2 do
+					while not value4 and os.clock() - now < 2 do
 						if not RunService.Heartbeat:Wait() then
 							break
 						end
@@ -57106,15 +57106,15 @@ do
 						for k in pairs(tracked.kingbeetle) do
 							local Target = k:FindFirstChild("Target")
 							if not (not Target or not Target.Value or Target.Value.Name ~= localPlayer.Name) then
-								v131 = k
+								value4 = k
 								break
 							end
 						end
 					end
 
-					if not v131 then
+					if not value4 then
 						toyUse.time.kingbeetle = os.clock()
-						v127()
+						value()
 						return
 					end
 
@@ -57126,36 +57126,36 @@ do
 					local vector7 = Vector3.new(242, 5, 180)
 					local vector8 = Vector3.new(182, 5, 240)
 					local vector9 = Vector3.new(182, 5, 150)
-					local v132 = "down"
+					local text = "down"
 					local now2 = os.clock()
 					state.stopfasttween = true
 					reportStatus(3)
 
-					while not (not v131.Parent or getHumanoid().Health == 0 or not (os.clock() - now2 < 300)) do
+					while not (not value4.Parent or getHumanoid().Health == 0 or not (os.clock() - now2 < 300)) do
 						if not RunService.Heartbeat:Wait() then
 							break
 						end
 
 						local ok, result = pcall(function()
-							if v132 == "down" then
-								v132 = "right"
+							if text == "down" then
+								text = "right"
 								walkTo(vector2, true, 8)
 								walkTo(vector6, true, 8)
 								task.wait(1)
-							elseif v132 == "right" then
-								v132 = "up"
+							elseif text == "right" then
+								text = "up"
 								walkTo(vector4, true, 8)
 								walkTo(vector8, true, 8)
 								task.wait(1)
-							elseif v132 ~= "up" then
-								if v132 == "left" then
-									v132 = "down"
+							elseif text ~= "up" then
+								if text == "left" then
+									text = "down"
 									walkTo(vector3, true, 8)
 									walkTo(vector9, true, 8)
 									task.wait(1)
 								end
 							else
-								v132 = "left"
+								text = "left"
 								walkTo(vector5, true, 8)
 								walkTo(vector7, true, 8)
 								task.wait(1)
@@ -57171,7 +57171,7 @@ do
 					if getHumanoid().Health == 0 or os.clock() - now2 >= 300 then
 						toyUse.time.kingbeetle = os.clock()
 						state.stopfasttween = nil
-						v127()
+						value()
 						return
 					end
 
@@ -57241,11 +57241,11 @@ do
 					local vector2 = Vector3.new(403, 7, -37)
 					goTo(vector2, "Tunnel Bear")
 					local now = os.clock()
-					local v131 = nil
-					local v132 = nil
-					local v133 = nil
+					local value4 = nil
+					local value5 = nil
+					local now2 = nil
 
-					while not v131 and os.clock() - now < 2 do
+					while not value4 and os.clock() - now < 2 do
 						if not RunService.Heartbeat:Wait() then
 							break
 						end
@@ -57255,14 +57255,14 @@ do
 							local HumanoidRootPart = k:FindFirstChild("HumanoidRootPart")
 
 							if not (not HumanoidRootPart or not Target or not Target.Value or Target.Value.Name ~= localPlayer.Name) then
-								v131 = k
-								v132 = HumanoidRootPart
+								value4 = k
+								value5 = HumanoidRootPart
 								break
 							end
 						end
 					end
 
-					if not v131 then
+					if not value4 then
 						if cfg.vars.movement == "Walk" then
 							getHumanoid().Health = 0
 							localPlayer.CharacterAdded:Wait()
@@ -57270,34 +57270,34 @@ do
 						end
 
 						toyUse.time.tunnelbear = os.clock()
-						v127()
+						value()
 						return
 					end
 
 					state.stopfasttween = true
 
-					while not (not v131.Parent or getHumanoid().Health == 0 or not (os.clock() - now < 150)) do
+					while not (not value4.Parent or getHumanoid().Health == 0 or not (os.clock() - now < 150)) do
 						if RunService.Heartbeat:Wait() then
 							local ok, result = pcall(function()
-								if not v133 or v133 == 8 then
+								if not now2 or now2 == 8 then
 									walkTo(vector2, true, 8)
-									v133 = 0
-								elseif v133 == 1 then
+									now2 = 0
+								elseif now2 == 1 then
 									walkTo(vector2 + Vector3.new(50, 0, 0), true, 8)
-								elseif v133 == 2 then
+								elseif now2 == 2 then
 									walkTo(vector2 + Vector3.new(100, 0, 0), true, 8)
-								elseif v133 == 3 then
+								elseif now2 == 3 then
 									walkTo(vector2 + Vector3.new(150, 0, 0), true, 8)
-								elseif v133 == 4 then
+								elseif now2 == 4 then
 									walkTo(vector2 + Vector3.new(150, 0, -22), true, 8)
 									walkTo(vector2 + Vector3.new(100, 0, -22), true, 8)
-								elseif v133 == 5 then
+								elseif now2 == 5 then
 									walkTo(vector2 + Vector3.new(50, 0, -22), true, 8)
-								elseif v133 ~= 6 then
-									if v133 == 7 then
+								elseif now2 ~= 6 then
+									if now2 == 7 then
 										walkTo(vector2, true, 8)
 										walkTo(vector2 + Vector3.new(50, 0, 0), true, 8)
-										v133 = 1
+										now2 = 1
 									end
 								else
 									walkTo(vector2 + Vector3.new(0, 0, -22), true, 8)
@@ -57309,12 +57309,12 @@ do
 								logger.warn(result)
 							end
 
-							while not (not v131.Parent or not (distanceTo(v132.Position, true) > 25)) do
+							while not (not value4.Parent or not (distanceTo(value5.Position, true) > 25)) do
 								RunService.Heartbeat:Wait()
 							end
 
-							v133 += 1
-							if v131.Parent then
+							now2 += 1
+							if value4.Parent then
 								continue
 							end
 						end
@@ -57331,7 +57331,7 @@ do
 					if getHumanoid().Health == 0 or os.clock() - now >= 150 then
 						toyUse.time.tunnelbear = os.clock()
 						state.stopfasttween = nil
-						v127()
+						value()
 						return
 					end
 
@@ -57388,10 +57388,10 @@ do
 
 					if cfg.combat.crabmethod ~= "Tween" then
 						goToField()
-						local now, v131, v132 = os.clock()
+						local now, value4, value5 = os.clock()
 						state.coconuts = 0
 
-						while not v131 and os.clock() - now < 6 do
+						while not value4 and os.clock() - now < 6 do
 							if not RunService.Heartbeat:Wait() then
 								break
 							end
@@ -57401,25 +57401,25 @@ do
 								local HumanoidRootPart = k:FindFirstChild("HumanoidRootPart")
 
 								if not (not HumanoidRootPart or not Target or not Target.Value or Target.Value.Name ~= localPlayer.Name) then
-									v132 = HumanoidRootPart
-									v131 = k
+									value5 = HumanoidRootPart
+									value4 = k
 									break
 								end
 							end
 						end
 
-						if not v131 then
+						if not value4 then
 							toyUse.time.crab = os.clock()
-							v127()
+							value()
 							return
 						end
 
-						local v133 = nil
+						local value6 = nil
 						local target2 = nil
 						state.stopfasttween = true
 						reportStatus(3)
 
-						while not (not v131.Parent or getHumanoid().Health == 0) do
+						while not (not value4.Parent or getHumanoid().Health == 0) do
 							if not RunService.Heartbeat:Wait() then
 								break
 							end
@@ -57433,40 +57433,40 @@ do
 									useItems({ Skip = true, Stingers = coconutCrab, Starsaw = coconutCrab2, Oil = cfg.combat.craboil })
 								end
 
-								local v135 = { [v132.Position] = 50 }
+								local list = { [value5.Position] = 50 }
 
 								for k, crabcoconut in pairs(tracked.crabcoconuts) do
-									v135[k] = crabcoconut
+									list[k] = crabcoconut
 								end
 
 								for i = 1, 5 do
-									v135[v132.Position + Vector3.new(30 * i, 0, 0)] = 30
-									v135[v132.Position + Vector3.new(30 * -i, 0, 0)] = 30
+									list[value5.Position + Vector3.new(30 * i, 0, 0)] = 30
+									list[value5.Position + Vector3.new(30 * -i, 0, 0)] = 30
 								end
 
 								if state.coconuts == 0 or state.coconuts >= 8 then
 									state.coconuts = 0
 
 									for i = 1, 4 do
-										v135[v132.Position + Vector3.new(0, 0, 40 * i)] = 40
-										v135[v132.Position + Vector3.new(0, 0, 40 * -i)] = 40
+										list[value5.Position + Vector3.new(0, 0, 40 * i)] = 40
+										list[value5.Position + Vector3.new(0, 0, 40 * -i)] = 40
 									end
 								end
 
-								local constraints = { nowait = true, avoid = v135, skipoverlap = true }
+								local constraints = { nowait = true, avoid = list, skipoverlap = true }
 
 								if not (not collectTarget(constraints) and (not target2 or not (distanceTo(target2, true) < 4))) then
-									v133 = nil
+									value6 = nil
 								end
 
-								if (not v133 or os.clock() - nextMoveTime > 2) and not collectTarget(constraints) then
+								if (not value6 or os.clock() - nextMoveTime > 2) and not collectTarget(constraints) then
 									local target = randomFieldPosition(constraints, nil, true)
 
 									if not target then
 										nextMoveTime = os.clock() + 2.1
 									elseif distanceTo(target, true) > 5 then
 										target2 = target
-										v133 = true
+										value6 = true
 										nextMoveTime = os.clock()
 										getHumanoid():MoveTo(target)
 									else
@@ -57484,7 +57484,7 @@ do
 						if getHumanoid().Health == 0 then
 							toyUse.time.crab = os.clock()
 							state.stopfasttween = nil
-							v127()
+							value()
 							return
 						end
 					else
@@ -57512,9 +57512,9 @@ do
 						end
 
 						goTo(vector2 + Vector3.new(0, 10, 0), "Crab Platform")
-						local now, v131 = os.clock()
+						local now, value4 = os.clock()
 
-						while not v131 and os.clock() - now < 6 do
+						while not value4 and os.clock() - now < 6 do
 							if not RunService.Heartbeat:Wait() then
 								break
 							end
@@ -57522,22 +57522,22 @@ do
 							for k in pairs(tracked.cococrab) do
 								local Target = k:FindFirstChild("Target")
 								if not (not Target or not Target.Value or Target.Value.Name ~= localPlayer.Name) then
-									v131 = k
+									value4 = k
 									break
 								end
 							end
 						end
 
-						if not v131 then
+						if not value4 then
 							toyUse.time.crab = os.clock()
-							v127()
+							value()
 							return
 						end
 
 						state.stopfasttween = true
 						reportStatus(3)
 
-						while not (not v131.Parent or getHumanoid().Health == 0) do
+						while not (not value4.Parent or getHumanoid().Health == 0) do
 							if not RunService.Heartbeat:Wait() then
 								break
 							end
@@ -57582,7 +57582,7 @@ do
 						if not ok2 then
 							toyUse.time.crab = os.clock()
 							state.stopfasttween = nil
-							v127()
+							value()
 							return
 						end
 					end
@@ -57608,8 +57608,8 @@ do
 			end
 
 			if not (not cfg.beesmas.snowbear or not (bees >= 5)) then
-				local v131 = nil
-				local v132 = nil
+				local value4 = nil
+				local value5 = nil
 
 				for k in pairs(tracked.snowbear) do
 					local Target = k:FindFirstChild("Target")
@@ -57624,14 +57624,14 @@ do
 						end
 
 						if not (not HumanoidRootPart or not k.Parent) then
-							v131 = k
-							v132 = HumanoidRootPart
+							value4 = k
+							value5 = HumanoidRootPart
 							break
 						end
 					end
 				end
 
-				if not v131 then
+				if not value4 then
 					if toyUse:Do("Snowbear", true) then
 						if not (not cfg.combat.demonmask or not cfg.combat.dmwhitelist or not cfg.combat.dmwhitelist.Snowbear) then
 							if not localPlayer.Character:FindFirstChild("Demon Mask") then
@@ -57672,7 +57672,7 @@ do
 							end
 
 							if exitTo ~= 1 then
-								v127()
+								value()
 								return
 							end
 						end
@@ -57691,7 +57691,7 @@ do
 					setField("Spider Field")
 					local now = os.clock()
 
-					while not (not v131.Parent or not (os.clock() - now < 60)) do
+					while not (not value4.Parent or not (os.clock() - now < 60)) do
 						if not RunService.Heartbeat:Wait() then
 							break
 						end
@@ -57703,7 +57703,7 @@ do
 							useItems({ Skip = true, Stingers = snowbear, Starsaw = snowbear2 })
 						end
 
-						farmStep({ loot = true, avoid = { [v132.Position] = v132.Size.X + 20 } })
+						farmStep({ loot = true, avoid = { [value5.Position] = value5.Size.X + 20 } })
 					end
 
 					local options = { ignoreprio = true, loot = true }
@@ -57728,26 +57728,26 @@ do
 			end
 
 			if combat.killvicious then
-				for _, v131 in ipairs({ "vicious", "giftedvicious" }) do
-					if v131 == "giftedvicious" or not cfg.combat.giftedvicious then
-						for k in pairs(tracked[v131]) do
-							local v132 = tonumber(string.match(k.Name, "%d+"))
+				for _, val in ipairs({ "vicious", "giftedvicious" }) do
+					if val == "giftedvicious" or not cfg.combat.giftedvicious then
+						for k in pairs(tracked[val]) do
+							local num = tonumber(string.match(k.Name, "%d+"))
 							local HumanoidRootPart = k:FindFirstChild("HumanoidRootPart")
-							if not HumanoidRootPart or not v132 or not (not not (cfg.combat.viciousmin <= v132) and not not (v132 <= cfg.combat.viciousmax)) then
+							if not HumanoidRootPart or not num or not (not not (cfg.combat.viciousmin <= num) and not not (num <= cfg.combat.viciousmax)) then
 								continue
 							end
 							local WaitingThorn = workspace.Particles.WTs:FindFirstChild("WaitingThorn")
 							local field = getFieldAt(HumanoidRootPart.Position)
 
 							if not field or not availableFields[field.Name] then
-								tracked[v131][k] = nil
-								v127()
+								tracked[val][k] = nil
+								value()
 								return
 							end
 
 							reportStatus(3)
 							setField(field.Name)
-							logger.log((v131 == "giftedvicious" and "Gifted " or "") .. "Vicious Bee (lvl", v132 .. "): Found in", field.Name)
+							logger.log((val == "giftedvicious" and "Gifted " or "") .. "Vicious Bee (lvl", num .. "): Found in", field.Name)
 							goToField()
 							task.wait(0.2)
 
@@ -57773,14 +57773,14 @@ do
 										range = 30,
 									})
 								else
-									local v134 = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
+									local list = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
 
-									for k2, v135 in pairs(tracked.avoid) do
-										v134[k2] = v135
+									for k2, val2 in pairs(tracked.avoid) do
+										list[k2] = val2
 									end
 
 									farmStep({
-										avoid = v134,
+										avoid = list,
 										origin = HumanoidRootPart.Position + Vector3.new(0, -15, 0),
 										skipoverlap = true,
 										range = 58,
@@ -57802,18 +57802,18 @@ do
 			if combat.killwindy then
 				for k in pairs(tracked.windy) do
 					local field2 = getFieldAt(k.Position)
-					local v132 = false
-					local v133 = 0
+					local flag = false
+					local num = 0
 
-					while not field2 and v133 < 25 do
+					while not field2 and num < 25 do
 						task.wait(1)
-						v133 += 1
+						num += 1
 						field2 = getFieldAt(k.Position)
 					end
 
 					if not field2 then
 						tracked.windy[k] = nil
-					elseif not (not availableFields[field2.Name] or not ((field2.Name ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) and v130(field2, k.Position))) then
+					elseif not (not availableFields[field2.Name] or not ((field2.Name ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) and fn(field2, k.Position))) then
 						reportStatus(3)
 						logger.log("Windy Bee: Found in", field2.Name)
 						setField(field2.Name)
@@ -57824,7 +57824,7 @@ do
 						local exitTo3 = nil
 
 						while true do
-							if not v130(nil, k.Position, true) then
+							if not fn(nil, k.Position, true) then
 								exitTo3 = 1
 								break
 							else
@@ -57871,15 +57871,15 @@ do
 						if exitTo3 ~= 1 then
 							if exitTo3 == 2 then
 								tracked.windy[k] = nil
-								v127()
+								value()
 								return
 							end
 
-							v127()
+							value()
 							return
 						end
 
-						if v130(field2) then
+						if fn(field2) then
 							threads:Cancel("windyfield")
 
 							threads:Add("windyfield", function()
@@ -57891,16 +57891,16 @@ do
 											return
 										end
 										local field = getFieldAt(k.Position)
-										v133 = 0
+										num = 0
 
-										while not field and v133 < 25 do
-											if not v130() then
+										while not field and num < 25 do
+											if not fn() then
 												field2 = nil
 												return
 											end
-											v132 = true
+											flag = true
 											tokenPriority.sprout["3030569073"] = true
-											v133 += 1
+											num += 1
 											task.wait(1)
 											field = getFieldAt(k.Position)
 										end
@@ -57917,7 +57917,7 @@ do
 										end
 
 										if field.Name ~= field2.Name then
-											if not v130(field) then
+											if not fn(field) then
 												break
 											end
 											logger.log("Windy Bee: Found in", field.Name)
@@ -57927,7 +57927,7 @@ do
 
 										task.wait(5)
 										field2 = field
-										v132 = false
+										flag = false
 										setField(field2.Name)
 									end
 								end
@@ -57942,7 +57942,7 @@ do
 								goToField()
 
 								if not field2 or field2.Name ~= "Mountain Top Field" or not tracked.mondo then
-									if not v132 then
+									if not flag then
 										farmStep({
 											loot = true,
 											avoid = tracked.avoid,
@@ -57953,14 +57953,14 @@ do
 										farmStep({ loot = true })
 									end
 								else
-									local v134 = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
+									local list = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
 
-									for k2, v135 in pairs(tracked.avoid) do
-										v134[k2] = v135
+									for k2, val in pairs(tracked.avoid) do
+										list[k2] = val
 									end
 
 									farmStep({
-										avoid = v134,
+										avoid = list,
 										origin = k.Position + Vector3.new(0, -15, 0),
 										skipoverlap = true,
 										range = 58,
@@ -57975,9 +57975,9 @@ do
 			end
 		end
 
-		local function v131(v132, v133)
-			local spawner = monsterSpawners[v132]
-			local v135 = monsterSpawners[v133]
+		local function fn2(arg, arg2)
+			local spawner = monsterSpawners[arg]
+			local value4 = monsterSpawners[arg2]
 			if not spawner or mobCooldown(spawner) then
 				return
 			end
@@ -57987,46 +57987,46 @@ do
 				logger.log("No field found for", cactusField.Name, "or field not unlocked")
 				monsterSpawners[spawner.Name] = nil
 
-				if v135 then
-					monsterSpawners[v135.Name] = nil
+				if value4 then
+					monsterSpawners[value4.Name] = nil
 				end
 
 				return
 			end
 
-			local v136 = {}
-			local v137 = 0
-			local v138 = 0
-			local v139 = string.find(spawner.Name, "ForestMantis") ~= nil
-			local now, v140, v141 = os.clock()
-			local v142 = {}
+			local list = {}
+			local num = 0
+			local num2 = 0
+			local value5 = string.find(spawner.Name, "ForestMantis") ~= nil
+			local now, value6, value7 = os.clock()
+			local list2 = {}
 
-			for _, v143 in ipairs({ spawner, v135 }) do
-				table.insert(v142, v143.MonsterType)
-				v138 += 1
+			for _, val in ipairs({ spawner, value4 }) do
+				table.insert(list2, val.MonsterType)
+				num2 += 1
 
-				threads:Add(v143.Name, function()
+				threads:Add(val.Name, function()
 					while tracked do
 						if not RunService.Heartbeat:Wait() then
 							break
 						end
 
-						if not v143.timer.Visible then
+						if not val.timer.Visible then
 							for k in pairs(tracked.mobs) do
-								if string.find(k.Name, v143.MonsterType) then
+								if string.find(k.Name, val.MonsterType) then
 									local HumanoidRootPart = k:FindFirstChild("HumanoidRootPart")
 
 									if HumanoidRootPart then
-										if not v141 and getFieldAt(HumanoidRootPart.Position) == cactusField then
-											v141 = true
+										if not value7 and getFieldAt(HumanoidRootPart.Position) == cactusField then
+											value7 = true
 										end
 
-										v136[k] = HumanoidRootPart.Position
+										list[k] = HumanoidRootPart.Position
 									end
 								end
 							end
 						else
-							v137 += 1
+							num += 1
 							break
 						end
 					end
@@ -58035,7 +58035,7 @@ do
 
 			reportStatus(3)
 			setField(cactusField.Name)
-			logger.log("Killing", table.concat(v142, ", "))
+			logger.log("Killing", table.concat(list2, ", "))
 
 			while getFieldAt(getRootPart().Position) ~= currentField and os.clock() - now < 30 do
 				if not RunService.Heartbeat:Wait() then
@@ -58051,29 +58051,29 @@ do
 
 			local now2 = os.clock()
 
-			while not v141 and os.clock() - now2 < 2 do
+			while not value7 and os.clock() - now2 < 2 do
 				RunService.Heartbeat:Wait()
 			end
 
-			if not v141 then
+			if not value7 then
 				setTimer(spawner.Name, os.time() + 300)
 				return
 			end
 			local exitTo = nil
 
 			while true do
-				if v137 ~= v138 and os.clock() - now2 < 30 then
+				if num ~= num2 and os.clock() - now2 < 30 then
 					if not RunService.Heartbeat:Wait() then
 						exitTo = 1
 						break
 					elseif getFieldAt(getRootPart().Position) == cactusField then
-						if v139 then
-							if not v140 or v140 == "left" then
+						if value5 then
+							if not value6 or value6 == "left" then
 								walkTo(cactusField.Position - Vector3.new(0, 0, 15), true, 8)
-								v140 = "right"
+								value6 = "right"
 							else
 								walkTo(cactusField.Position + Vector3.new(0, 0, 15), true, 8)
-								v140 = "left"
+								value6 = "left"
 							end
 						end
 
@@ -58094,21 +58094,21 @@ do
 				return
 			end
 
-			for _, v143 in pairs({ spawner, v135 }) do
-				threads:Cancel(v143.Name .. "pos")
-				threads:Cancel(v143.Name .. "timer")
+			for _, val in pairs({ spawner, value4 }) do
+				threads:Cancel(val.Name .. "pos")
+				threads:Cancel(val.Name .. "timer")
 			end
 
-			for _, v143 in pairs(v136) do
+			for _, val in pairs(list) do
 				local stats = discord.stats
 				stats["Total Bug Kills"] = stats["Total Bug Kills"] + 1
-				farmFor({ ignoreprio = true, loot2 = true, loot = true, origin = v143, range = 25 }, 9)
+				farmFor({ ignoreprio = true, loot2 = true, loot = true, origin = val, range = 25 }, 9)
 			end
 
 			return true
 		end
 
-		v128 = function()
+		value2 = function()
 			if not ((not cfg.puffshrooms.enabled or not findPuffshroom()) and (not cfg.sprouts.enabled or not findSprout())) then
 				return
 			end
@@ -58116,45 +58116,45 @@ do
 			local bees = state.bees
 
 			if not (not combat.killWerewolf or not (bees >= 15)) then
-				v131("WerewolfCave")
+				fn2("WerewolfCave")
 			end
 
 			if not (not combat.killMantis or not (bees >= 15)) then
-				v131("ForestMantis1", "ForestMantis2")
+				fn2("ForestMantis1", "ForestMantis2")
 			end
 
 			if not (not combat.killScorpion or not (bees >= 15)) then
-				v131("RoseBush", "RoseBush2")
+				fn2("RoseBush", "RoseBush2")
 			end
 
 			if combat.killLadybug then
-				v131("MushroomBush")
-				v131("Ladybug Bush", "Rhino Bush")
+				fn2("MushroomBush")
+				fn2("Ladybug Bush", "Rhino Bush")
 			end
 
 			if combat.killRhinoBeetle then
-				v131("Rhino Bush", "Ladybug Bush")
-				v131("Rhino Cave 1")
+				fn2("Rhino Bush", "Ladybug Bush")
+				fn2("Rhino Cave 1")
 
 				if bees >= 5 then
-					v131("Rhino Cave 2", "Rhino Cave 3")
+					fn2("Rhino Cave 2", "Rhino Cave 3")
 				end
 
 				if bees >= 10 then
-					v131("PineappleBeetle", "PineappleMantis1")
+					fn2("PineappleBeetle", "PineappleMantis1")
 				end
 			end
 
 			if not (not combat.killMantis or not (bees >= 10)) then
-				v131("PineappleMantis1", "PineappleBeetle")
+				fn2("PineappleMantis1", "PineappleBeetle")
 			end
 
 			if not (not combat.killSpider or not (bees >= 5)) then
-				v131("Spider Cave")
+				fn2("Spider Cave")
 			end
 
 			if not (not combat.killLadybug or not (bees >= 5)) then
-				v131("Ladybug Bush 2", "Ladybug Bush 3")
+				fn2("Ladybug Bush 2", "Ladybug Bush 3")
 			end
 		end
 
@@ -58481,29 +58481,29 @@ do
 				Violet = { "Rose Field", "Clover Field" },
 				Merigold = { "Mountain Top Field" },
 			},
-			Status = function(v132, ...)
-				local v133 = {}
+			Status = function(arg, ...)
+				local list = {}
 
-				for k, v134 in next, { ... }, nil do
-					if type(v134) == "string" then
-						table.insert(v133, (k > 1 and " " or "") .. v134)
+				for k, val in next, { ... }, nil do
+					if type(val) == "string" then
+						table.insert(list, (k > 1 and " " or "") .. val)
 					else
-						table.insert(v133, (k > 1 and " " or "") .. v134)
+						table.insert(list, (k > 1 and " " or "") .. val)
 					end
 				end
 
-				local text = table.concat(v133, "")
+				local text = table.concat(list, "")
 
-				if not v132.text or v132.text ~= text then
-					v132.text = text
-					v132.texttime = os.clock()
+				if not arg.text or arg.text ~= text then
+					arg.text = text
+					arg.texttime = os.clock()
 					logger.log(text)
 				else
-					local texttime = v132.texttime
+					local texttime = arg.texttime
 
 					if os.clock() - texttime > 30 then
-						v132.text = text
-						v132.texttime = os.clock()
+						arg.text = text
+						arg.texttime = os.clock()
 						logger.log(text)
 						return
 					end
@@ -58511,8 +58511,8 @@ do
 			end,
 		}
 
-		local function v132(label)
-			local v134 = 0
+		local function fn3(label)
+			local num = 0
 			local dialog = gameGui.Dialog
 			local OnettWithStickers, imageLabel
 
@@ -58529,7 +58529,7 @@ do
 				local exitTo = nil
 
 				while true do
-					if not (v134 < 3) or not (imageLabel.ImageTransparency == 0 or not (label ~= "Polar Bear" or gameApi:Cache({ "NPCs", label }))) then
+					if not (num < 3) or not (imageLabel.ImageTransparency == 0 or not (label ~= "Polar Bear" or gameApi:Cache({ "NPCs", label }))) then
 						exitTo = 1
 						break
 					else
@@ -58537,7 +58537,7 @@ do
 							exitTo = 1
 							break
 						else
-							v134 += 1
+							num += 1
 							goTo(OnettWithStickers.Platform.Position, label)
 							secureCall(gameApi.NPCs, localPlayer, OnettWithStickers)
 							local now = os.clock()
@@ -58566,21 +58566,21 @@ do
 				questData.data2 = nil
 				questData.time = nil
 
-				if v134 > 1 and (not cfg.webhook.enabled or not cfg.webhook.questdone2 or cfg.webhook.url == "") then
+				if num > 1 and (not cfg.webhook.enabled or not cfg.webhook.questdone2 or cfg.webhook.url == "") then
 					local stats = discord.stats
 					stats["Quests Done"] = stats["Quests Done"] + 1
 				end
 			end
 		end
 
-		v129 = function(options)
+		value3 = function(options)
 			local popStarAura = cfg.autofarm.autopopstar and (buffs["Pop Star Aura"] or buffs["Tidal Surge"]) or cfg.autofarm.autoscorchingstar and buffs["Scorching Star Aura"] or cfg.autofarm.autogummystar and buffs["Gummy Star Aura"]
 
 			if not popStarAura and cfg.autoquest.claim2 then
 				for k in pairs(cfg.autoquest.claim2) do
 					if k ~= "Bee Bear" then
 						if k == "Brown Bear" or k == "Black Bear" or k == "Mother Bear" or not ((k ~= "Spirit Bear" or state.bees ~= 35) and (k ~= "Onett" or not (state.bees >= 30)) and not ((k == "Polar Bear" or k == "Honey Bee") and state.bees >= 15 or not ((k ~= "Dapper Bear" or not (not not (state.bees >= 10) and state.dapper)) and (k ~= "Riley Bee" or not (not not (state.bees >= 15) and state.redhq)) and (k ~= "Bucko Bee" or not state.bluehq) and (k ~= "Science Bear" or not (state.bees >= 10)) and (k ~= "Panda Bear" or not (state.bees >= 5))))) then
-							v132(k)
+							fn3(k)
 						end
 					else
 						if not questData.beebear then
@@ -58595,7 +58595,7 @@ do
 						if not questData.beebear then
 							cfg.autoquest.claim2[k] = nil
 						else
-							v132(questData.beebear)
+							fn3(questData.beebear)
 						end
 					end
 				end
@@ -58613,114 +58613,114 @@ do
 				end
 
 				if ok14 then
-					local v134 = gameApi:Cache()
+					local value4 = gameApi:Cache()
 
-					for _, v135 in ipairs(v134.Quests.Active) do
-						local v136 = secureCall(gameApi.Quests.Get, nil, v135.Name)
+					for _, val in ipairs(value4.Quests.Active) do
+						local value5 = secureCall(gameApi.Quests.Get, nil, val.Name)
 
-						if not (not v136 or not (not v136.Hidden and not ((not autoquest.xmas or v136.Theme ~= "Xmas") and v136.Theme == "Xmas"))) then
-							local npc = v136.NPC
+						if not (not value5 or not (not value5.Hidden and not ((not autoquest.xmas or value5.Theme ~= "Xmas") and value5.Theme == "Xmas"))) then
+							local npc = value5.NPC
 
-							if not (not npc or (npc ~= "Black Bear" or not (not v136.Repeatable and autoquest.blackbear)) and (npc ~= "Mother Bear" or not autoquest.motherbear) and (npc ~= "Panda Bear" or not autoquest.pandabear) and (npc ~= "Science Bear" or not autoquest.sciencebear) and (npc ~= "Dapper Bear" or not autoquest.dapperbear) and (npc ~= "Onett" or not autoquest.onett) and (npc ~= "Spirit Bear" or not autoquest.spiritbear) and (npc ~= "Black Bear" or not v136.Repeatable or not autoquest.blackbear2) and (npc ~= "Brown Bear" or not autoquest.brownbear) and (npc ~= "Bucko Bee" or not autoquest.buckobee) and (npc ~= "Riley Bee" or not autoquest.rileybee) and (npc ~= "Honey Bee" or not autoquest.honeybee) and (npc ~= "Polar Bear" or not autoquest.polarbear) and (npc ~= "Stick Bug" or not autoquest.stickbug) and (not string.find(npc, "Gummy Bear") or not autoquest.gummybear) and (not string.find(npc, "Bee Bear") or not autoquest.beebear)) then
-								local v137 = secureCall(gameApi.Quests.Progress, nil, v136.Name, v134)
+							if not (not npc or (npc ~= "Black Bear" or not (not value5.Repeatable and autoquest.blackbear)) and (npc ~= "Mother Bear" or not autoquest.motherbear) and (npc ~= "Panda Bear" or not autoquest.pandabear) and (npc ~= "Science Bear" or not autoquest.sciencebear) and (npc ~= "Dapper Bear" or not autoquest.dapperbear) and (npc ~= "Onett" or not autoquest.onett) and (npc ~= "Spirit Bear" or not autoquest.spiritbear) and (npc ~= "Black Bear" or not value5.Repeatable or not autoquest.blackbear2) and (npc ~= "Brown Bear" or not autoquest.brownbear) and (npc ~= "Bucko Bee" or not autoquest.buckobee) and (npc ~= "Riley Bee" or not autoquest.rileybee) and (npc ~= "Honey Bee" or not autoquest.honeybee) and (npc ~= "Polar Bear" or not autoquest.polarbear) and (npc ~= "Stick Bug" or not autoquest.stickbug) and (not string.find(npc, "Gummy Bear") or not autoquest.gummybear) and (not string.find(npc, "Bee Bear") or not autoquest.beebear)) then
+								local value6 = secureCall(gameApi.Quests.Progress, nil, value5.Name, value4)
 
-								if not (not v137 or type(v137) ~= "table") then
-									for k, v138 in pairs(v137) do
-										if v138[1] < 1 then
-											local v139 = v136.Tasks[k]
-											local v140 = {}
+								if not (not value6 or type(value6) ~= "table") then
+									for k, val2 in pairs(value6) do
+										if val2[1] < 1 then
+											local value7 = value5.Tasks[k]
+											local list = {}
 
-											if not (v139.Type ~= "Collect Pollen" or not autoquest.pollen) then
-												v140.Type = "Farm"
-											elseif not (v139.Type ~= "Collect Goo" or not autoquest.goo) then
-												v140.Type = "Goo"
-											elseif not (v139.Type ~= "Defeat Monsters" or not autoquest.ants or not (not not (state.bees >= 15) and string.find(v139.MonsterType, "Ant"))) then
-												v140.Type = "Ant"
-											elseif not (v139.Type ~= "Defeat Monsters" or not autoquest.mobs) then
-												v140.Type = "Mob"
-											elseif not (v139.Type ~= "Collect Tokens" or not autoquest.dupedtokens or v139.Tag ~= "Duped Ability") then
-												v140.Type = "Duped"
-											elseif not (v139.Type ~= "Collect Tokens" or not autoquest.ragetokens or v139.Tag ~= "Rage") then
-												v140.Type = "Rage"
-											elseif not (v139.Type ~= "Match Pairs" or not autoquest.memorymatch) then
-												v140.Type = "Match"
-											elseif not (not string.find(v139.Type, "Puffshrooms") or not autoquest.puffshrooms) then
-												v140.Type = "Puffshrooms"
-											elseif not (v139.Type ~= "Donate To Wind Shrine" or not autoquest.windshrine or state.bees ~= 35) then
-												v140.Type = "Donate"
-											elseif not (v139.Type ~= "Use Toy" or not autoquest.toys or not string.find(v139.Toy, "Field Booster") and not string.find(v139.Toy, "Portal")) then
-												v140.Type = "Toy"
-											elseif not (v139.Type ~= "Share Jelly Beans" or not autoquest.sharebeans) then
-												v140.Type = "Share"
-											elseif not (v139.Type ~= "Craft Ingredients" or not autoquest.craft) then
-												v140.Type = "Craft"
-											elseif not (v139.Type ~= "Have Total" or not autoquest.blooms or type(v139.Tag) ~= "table" or v139.Tag[1] ~= "Petals" or not (not v139.Tag[4] or availableFields[v139.Tag[4]])) then
-												v140.Type = "Blooms"
-											elseif not (v139.Type ~= "Use Items" or not autoquest.rj or v139.Item ~= "RoyalJelly") then
-												v140.Type = "RJ"
-											elseif v139.Type ~= "Use Items" or not autoquest.feedbees or v139.Item == "RoyalJelly" then
-												if not (v139.Type ~= "Have Bees" or not autoquest.levelbees or not v139.Level) then
-													v140.Type = "Level"
+											if not (value7.Type ~= "Collect Pollen" or not autoquest.pollen) then
+												list.Type = "Farm"
+											elseif not (value7.Type ~= "Collect Goo" or not autoquest.goo) then
+												list.Type = "Goo"
+											elseif not (value7.Type ~= "Defeat Monsters" or not autoquest.ants or not (not not (state.bees >= 15) and string.find(value7.MonsterType, "Ant"))) then
+												list.Type = "Ant"
+											elseif not (value7.Type ~= "Defeat Monsters" or not autoquest.mobs) then
+												list.Type = "Mob"
+											elseif not (value7.Type ~= "Collect Tokens" or not autoquest.dupedtokens or value7.Tag ~= "Duped Ability") then
+												list.Type = "Duped"
+											elseif not (value7.Type ~= "Collect Tokens" or not autoquest.ragetokens or value7.Tag ~= "Rage") then
+												list.Type = "Rage"
+											elseif not (value7.Type ~= "Match Pairs" or not autoquest.memorymatch) then
+												list.Type = "Match"
+											elseif not (not string.find(value7.Type, "Puffshrooms") or not autoquest.puffshrooms) then
+												list.Type = "Puffshrooms"
+											elseif not (value7.Type ~= "Donate To Wind Shrine" or not autoquest.windshrine or state.bees ~= 35) then
+												list.Type = "Donate"
+											elseif not (value7.Type ~= "Use Toy" or not autoquest.toys or not string.find(value7.Toy, "Field Booster") and not string.find(value7.Toy, "Portal")) then
+												list.Type = "Toy"
+											elseif not (value7.Type ~= "Share Jelly Beans" or not autoquest.sharebeans) then
+												list.Type = "Share"
+											elseif not (value7.Type ~= "Craft Ingredients" or not autoquest.craft) then
+												list.Type = "Craft"
+											elseif not (value7.Type ~= "Have Total" or not autoquest.blooms or type(value7.Tag) ~= "table" or value7.Tag[1] ~= "Petals" or not (not value7.Tag[4] or availableFields[value7.Tag[4]])) then
+												list.Type = "Blooms"
+											elseif not (value7.Type ~= "Use Items" or not autoquest.rj or value7.Item ~= "RoyalJelly") then
+												list.Type = "RJ"
+											elseif value7.Type ~= "Use Items" or not autoquest.feedbees or value7.Item == "RoyalJelly" then
+												if not (value7.Type ~= "Have Bees" or not autoquest.levelbees or not value7.Level) then
+													list.Type = "Level"
 												end
 											else
-												v140.Type = "Items"
+												list.Type = "Items"
 											end
 
-											if v140.Type then
-												local description = v139.Description
+											if list.Type then
+												local description = value7.Description
 
 												if type(description) ~= "string" then
-													description = secureCall(description, v134)
+													description = secureCall(description, value4)
 												end
 
 												if type(description) == "string" then
-													v140.Theme = v136.Theme
-													v140.Description = description
-													v140.Title = v136.Name
+													list.Theme = value5.Theme
+													list.Description = description
+													list.Title = value5.Name
 
-													if not (v140.Type ~= "Farm" or not autoquest.ants or not (not not (state.bees >= 15) and v139.Zone == "Ant Field")) then
-														v140.Type = "Ant"
-														table.insert(data2, v140)
-													elseif v140.Type == "Farm" or v140.Type == "Goo" then
-														if not (not v139.Zone or not availableFields[v139.Zone]) then
-															v140.Type2 = "Field"
-															v140.Field = v139.Zone
-															table.insert(data, v140)
-														elseif not v139.Color then
-															if not (not autoquest.tools or not v139.Tag or not table.find(questData.tools, v139.Tag)) then
-																v140.Type = "Tool"
-																v140.Tool = v139.Tag
-																table.insert(data2, v140)
+													if not (list.Type ~= "Farm" or not autoquest.ants or not (not not (state.bees >= 15) and value7.Zone == "Ant Field")) then
+														list.Type = "Ant"
+														table.insert(data2, list)
+													elseif list.Type == "Farm" or list.Type == "Goo" then
+														if not (not value7.Zone or not availableFields[value7.Zone]) then
+															list.Type2 = "Field"
+															list.Field = value7.Zone
+															table.insert(data, list)
+														elseif not value7.Color then
+															if not (not autoquest.tools or not value7.Tag or not table.find(questData.tools, value7.Tag)) then
+																list.Type = "Tool"
+																list.Tool = value7.Tag
+																table.insert(data2, list)
 															end
 														else
-															v140.Type2 = "Color"
-															v140.Color = v139.Color
-															table.insert(data, v140)
+															list.Type2 = "Color"
+															list.Color = value7.Color
+															table.insert(data, list)
 														end
-													elseif not (v140.Type ~= "Duped" or not tracked.corruptedfield) then
-														v140.Field = tracked.corruptedfield
-														table.insert(data, v140)
-													elseif not (v140.Type ~= "Items" or not string.find(v140.Description, "Feed")) then
-														v140.Type = "Feed"
-														v140.Progress = v138
-														table.insert(data2, v140)
-													elseif v140.Type ~= "Blooms" then
-														if v140.Type == "Craft" or v140.Type == "Share" or v140.Type == "RJ" or v140.Type == "Donate" then
-															v140.Progress = v138
-															table.insert(data2, v140)
-														elseif v140.Type == "Ant" or v140.Type == "Mob" or v140.Type == "Rage" or v140.Type == "Puffshrooms" or v140.Type == "Toy" or v140.Type == "Match" then
-															table.insert(data2, v140)
+													elseif not (list.Type ~= "Duped" or not tracked.corruptedfield) then
+														list.Field = tracked.corruptedfield
+														table.insert(data, list)
+													elseif not (list.Type ~= "Items" or not string.find(list.Description, "Feed")) then
+														list.Type = "Feed"
+														list.Progress = val2
+														table.insert(data2, list)
+													elseif list.Type ~= "Blooms" then
+														if list.Type == "Craft" or list.Type == "Share" or list.Type == "RJ" or list.Type == "Donate" then
+															list.Progress = val2
+															table.insert(data2, list)
+														elseif list.Type == "Ant" or list.Type == "Mob" or list.Type == "Rage" or list.Type == "Puffshrooms" or list.Type == "Toy" or list.Type == "Match" then
+															table.insert(data2, list)
 														end
-													elseif not v139.Tag[4] then
-														local match = findMatch(questData.petaltypes, v140.Description)
+													elseif not value7.Tag[4] then
+														local match = findMatch(questData.petaltypes, list.Description)
 
 														if match then
-															v140.Color = match
-															table.insert(data, v140)
+															list.Color = match
+															table.insert(data, list)
 														end
 													else
-														v140.Field = v139.Tag[4]
-														table.insert(data, v140)
+														list.Field = value7.Tag[4]
+														table.insert(data, list)
 													end
 												end
 											end
@@ -58742,88 +58742,88 @@ do
 				if not popStarAura then
 					local tool_ = nil
 
-					table.sort(data2, function(v134, v135)
-						return v134.Type == "Ant" and v135.Type == "Rage"
+					table.sort(data2, function(arg, arg2)
+						return arg.Type == "Ant" and arg2.Type == "Rage"
 					end)
 
-					for _, v134 in ipairs(data2) do
-						if v134.Type == "Ant" then
+					for _, val in ipairs(data2) do
+						if val.Type == "Ant" then
 							doAntChallenge()
 							continue
 						end
 
-						if v134.Type == "Mob" or v134.Type == "Rage" then
-							if not (v134.Type ~= "Rage" or not (not not (state.bees >= 15) and not mobCooldown(monsterSpawners.StumpSnail))) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Stump Snail" or "Auto Quest: Collecting rage tokens from Stump Snail", "(" .. v134.Title .. ")")
+						if val.Type == "Mob" or val.Type == "Rage" then
+							if not (val.Type ~= "Rage" or not (not not (state.bees >= 15) and not mobCooldown(monsterSpawners.StumpSnail))) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Stump Snail" or "Auto Quest: Collecting rage tokens from Stump Snail", "(" .. val.Title .. ")")
 								killStumpSnail(true)
 							end
 
-							if state.bees >= 15 and (v134.Type == "Rage" or string.find(v134.Description, "Werewolf")) and not mobCooldown(monsterSpawners.WerewolfCave) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Werewolf" or "Auto Quest: Collecting rage tokens from Werewolf", "(" .. v134.Title .. ")")
-								if v131("WerewolfCave") then
+							if state.bees >= 15 and (val.Type == "Rage" or string.find(val.Description, "Werewolf")) and not mobCooldown(monsterSpawners.WerewolfCave) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Werewolf" or "Auto Quest: Collecting rage tokens from Werewolf", "(" .. val.Title .. ")")
+								if fn2("WerewolfCave") then
 									return
 								end
 							end
 
-							if state.bees >= 15 and (v134.Type == "Rage" or string.find(v134.Description, "Mantis")) and not mobCooldown(monsterSpawners.ForestMantis1) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Mantis" or "Auto Quest: Collecting rage tokens from Mantis", "(" .. v134.Title .. ")")
-								if v131("ForestMantis1", "ForestMantis2") then
+							if state.bees >= 15 and (val.Type == "Rage" or string.find(val.Description, "Mantis")) and not mobCooldown(monsterSpawners.ForestMantis1) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Mantis" or "Auto Quest: Collecting rage tokens from Mantis", "(" .. val.Title .. ")")
+								if fn2("ForestMantis1", "ForestMantis2") then
 									return
 								end
 							end
 
-							if state.bees >= 15 and (v134.Type == "Rage" or string.find(v134.Description, "Scorpion")) and not mobCooldown(monsterSpawners.RoseBush) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Scorpion" or "Auto Quest: Collecting rage tokens from Scorpion", "(" .. v134.Title .. ")")
-								if v131("RoseBush", "RoseBush2") then
+							if state.bees >= 15 and (val.Type == "Rage" or string.find(val.Description, "Scorpion")) and not mobCooldown(monsterSpawners.RoseBush) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Scorpion" or "Auto Quest: Collecting rage tokens from Scorpion", "(" .. val.Title .. ")")
+								if fn2("RoseBush", "RoseBush2") then
 									return
 								end
 							end
 
-							if (v134.Type == "Rage" or string.find(v134.Description, "Ladybug")) and (not mobCooldown(monsterSpawners.MushroomBush) or not mobCooldown(monsterSpawners["Ladybug Bush"])) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Ladybug" or "Auto Quest: Collecting rage tokens from Ladybug", "(" .. v134.Title .. ")")
-								local MushroomBush = v131("MushroomBush")
-								local ladybugBush = v131("Ladybug Bush", "Rhino Bush")
+							if (val.Type == "Rage" or string.find(val.Description, "Ladybug")) and (not mobCooldown(monsterSpawners.MushroomBush) or not mobCooldown(monsterSpawners["Ladybug Bush"])) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Ladybug" or "Auto Quest: Collecting rage tokens from Ladybug", "(" .. val.Title .. ")")
+								local MushroomBush = fn2("MushroomBush")
+								local ladybugBush = fn2("Ladybug Bush", "Rhino Bush")
 								if not (not MushroomBush and not ladybugBush) then
 									return
 								end
 							end
 
-							if (v134.Type == "Rage" or string.find(v134.Description, "Rhino Beetle")) and (not mobCooldown(monsterSpawners["Rhino Bush"]) or not mobCooldown(monsterSpawners["Rhino Cave 1"]) or state.bees >= 5 and not mobCooldown(monsterSpawners["Rhino Cave 2"]) or state.bees >= 10 and not mobCooldown(monsterSpawners.PineappleBeetle)) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Rhino Beetle" or "Auto Quest: Collecting rage tokens from Rhino Beetle", "(" .. v134.Title .. ")")
-								local rhinoBush = v131("Rhino Bush", "Ladybug Bush")
-								local rhinoCave1 = v131("Rhino Cave 1")
-								local rhinoCave2 = state.bees >= 5 and v131("Rhino Cave 2", "Rhino Cave 3")
-								local PineappleBeetle = state.bees >= 10 and v131("PineappleBeetle", "PineappleMantis1")
+							if (val.Type == "Rage" or string.find(val.Description, "Rhino Beetle")) and (not mobCooldown(monsterSpawners["Rhino Bush"]) or not mobCooldown(monsterSpawners["Rhino Cave 1"]) or state.bees >= 5 and not mobCooldown(monsterSpawners["Rhino Cave 2"]) or state.bees >= 10 and not mobCooldown(monsterSpawners.PineappleBeetle)) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Rhino Beetle" or "Auto Quest: Collecting rage tokens from Rhino Beetle", "(" .. val.Title .. ")")
+								local rhinoBush = fn2("Rhino Bush", "Ladybug Bush")
+								local rhinoCave1 = fn2("Rhino Cave 1")
+								local rhinoCave2 = state.bees >= 5 and fn2("Rhino Cave 2", "Rhino Cave 3")
+								local PineappleBeetle = state.bees >= 10 and fn2("PineappleBeetle", "PineappleMantis1")
 								if not (not rhinoBush and not rhinoCave1 and not rhinoCave2 and not PineappleBeetle) then
 									return
 								end
 							end
 
-							if state.bees >= 10 and (v134.Type == "Rage" or string.find(v134.Description, "Mantis")) and not mobCooldown(monsterSpawners.PineappleMantis1) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Mantis" or "Auto Quest: Collecting rage tokens from Mantis", "(" .. v134.Title .. ")")
-								if v131("PineappleMantis1", "PineappleBeetle") then
+							if state.bees >= 10 and (val.Type == "Rage" or string.find(val.Description, "Mantis")) and not mobCooldown(monsterSpawners.PineappleMantis1) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Mantis" or "Auto Quest: Collecting rage tokens from Mantis", "(" .. val.Title .. ")")
+								if fn2("PineappleMantis1", "PineappleBeetle") then
 									return
 								end
 							end
 
-							if state.bees >= 5 and (v134.Type == "Rage" or string.find(v134.Description, "Spider")) and not mobCooldown(monsterSpawners["Spider Cave"]) then
-								questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Spider" or "Auto Quest: Collecting rage tokens from Spider", "(" .. v134.Title .. ")")
-								if v131("Spider Cave") then
+							if state.bees >= 5 and (val.Type == "Rage" or string.find(val.Description, "Spider")) and not mobCooldown(monsterSpawners["Spider Cave"]) then
+								questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Spider" or "Auto Quest: Collecting rage tokens from Spider", "(" .. val.Title .. ")")
+								if fn2("Spider Cave") then
 									return
 								end
 							end
 
-							if not (not not (state.bees >= 5) and (v134.Type == "Rage" or string.find(v134.Description, "Ladybug")) and not mobCooldown(monsterSpawners["Ladybug Bush 2"])) then
+							if not (not not (state.bees >= 5) and (val.Type == "Rage" or string.find(val.Description, "Ladybug")) and not mobCooldown(monsterSpawners["Ladybug Bush 2"])) then
 								continue
 							end
-							questData:Status(v134.Type == "Mob" and "Auto Quest: Defeating Ladybug" or "Auto Quest: Collecting rage tokens from Ladybug", "(" .. v134.Title .. ")")
-							if not v131("Ladybug Bush 2", "Ladybug Bush 3") then
+							questData:Status(val.Type == "Mob" and "Auto Quest: Defeating Ladybug" or "Auto Quest: Collecting rage tokens from Ladybug", "(" .. val.Title .. ")")
+							if not fn2("Ladybug Bush 2", "Ladybug Bush 3") then
 								continue
 							end
 							return
 						end
 
-						if v134.Type == "Feed" then
+						if val.Type == "Feed" then
 							local ok15 = not questData.feedtime
 
 							if not ok15 then
@@ -58832,23 +58832,23 @@ do
 							end
 
 							if ok15 then
-								local match = findMatch(questData.feeditems, v134.Description)
-								local v136, v137
+								local match = findMatch(questData.feeditems, val.Description)
+								local value4, value5
 
-								if not v134.Progress then
-									v136, v137 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+								if not val.Progress then
+									value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
 								else
-									v136 = v134.Progress[2]
-									v137 = v134.Progress[3]
+									value4 = val.Progress[2]
+									value5 = val.Progress[3]
 								end
 
 								questData.feedtime = os.clock()
-								if not match or not v136 or not v137 then
+								if not match or not value4 or not value5 then
 									continue
 								end
-								local v138 = tonumber(v136)
-								local v139 = tonumber(v137)
-								local v140 = v139 - v138
+								local num = tonumber(value4)
+								local num2 = tonumber(value5)
+								local value6 = num2 - num
 
 								if match ~= "Strawberries" then
 									if match == "Blueberries" then
@@ -58858,48 +58858,48 @@ do
 									match = "Strawberry"
 								end
 
-								if not inventory:Has({ [match] = v140 }) then
+								if not inventory:Has({ [match] = value6 }) then
 									continue
 								end
 								local Honeycomb = gameApi:Cache("Honeycomb")
-								local v141 = nil
+								local value7 = nil
 
 								for k in pairs(Honeycomb) do
 									for k2 in pairs(Honeycomb[k]) do
-										local v142 = Honeycomb[k][k2]
+										local value8 = Honeycomb[k][k2]
 
-										if not v141 or v142.Bond < v141.Bond then
-											v141 = { Col = k, Row = k2, Bond = v142.Bond }
+										if not value7 or value8.Bond < value7.Bond then
+											value7 = { Col = k, Row = k2, Bond = value8.Bond }
 										end
 									end
 								end
 
-								if not v141 then
+								if not value7 then
 									continue
 								end
 
-								if not v134.Progress then
-									questData:Status("Debug:", v138 .. " / " .. v139, desc)
+								if not val.Progress then
+									questData:Status("Debug:", num .. " / " .. num2, desc)
 								end
 
-								questData:Status("Auto Quest: Feeding x" .. v140, match, "to bee at", v141.Col, v141.Row)
+								questData:Status("Auto Quest: Feeding x" .. value6, match, "to bee at", value7.Col, value7.Row)
 
 								if distanceTo(localPlayer.SpawnPos.Value.Position, true) > 9 then
 									goTo(localPlayer.SpawnPos.Value.Position, "Hive")
 									task.wait(0.5)
 								end
 
-								local v142 = string.gsub(match, " ", "")
-								local ConstructHiveCellFromEgg, v143, v144, v145, v146 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(v141.Col, 2)), tonumber(string.sub(v141.Row, 2)), v142, v140, false)
+								local value8 = string.gsub(match, " ", "")
+								local ConstructHiveCellFromEgg, value9, value10, value11, value12 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(value7.Col, 2)), tonumber(string.sub(value7.Row, 2)), value8, value6, false)
 
-								if not v143 then
+								if not value9 then
 									logger.warn("Failed to feed bee")
 									task.wait(1)
 								else
-									gameApi:CacheSet({ "Eggs", v142 }, ConstructHiveCellFromEgg)
-									gameApi:CacheSet("Honeycomb", v144)
-									gameApi:CacheSet("DiscoveredBees", v145)
-									gameApi:CacheSet({ "Totals", "EggUses" }, v146)
+									gameApi:CacheSet({ "Eggs", value8 }, ConstructHiveCellFromEgg)
+									gameApi:CacheSet("Honeycomb", value10)
+									gameApi:CacheSet("DiscoveredBees", value11)
+									gameApi:CacheSet({ "Totals", "EggUses" }, value12)
 									task.wait(0.25)
 									error("return", 0)
 								end
@@ -58908,7 +58908,7 @@ do
 							end
 						end
 
-						if v134.Type == "Level" then
+						if val.Type == "Level" then
 							local ok16 = not questData.feedtime
 
 							if not ok16 then
@@ -58917,70 +58917,70 @@ do
 							end
 
 							if ok16 then
-								local v135, v136
+								local value4, value5
 
-								if not v134.Progress then
-									v135, v136 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+								if not val.Progress then
+									value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
 								else
-									v135 = v134.Progress[2]
-									v136 = v134.Progress[3]
+									value4 = val.Progress[2]
+									value5 = val.Progress[3]
 								end
 
 								questData.feedtime = os.clock()
-								local level = v134.Level or string.match(v134.Description, "Level (%d+)")
-								if not v135 or not v136 or not level then
+								local level = val.Level or string.match(val.Description, "Level (%d+)")
+								if not value4 or not value5 or not level then
 									continue
 								end
-								local v137 = tonumber(v135)
-								local v138 = tonumber(v136)
-								local v139 = tonumber(level)
+								local num = tonumber(value4)
+								local num2 = tonumber(value5)
+								local num3 = tonumber(level)
 								local Honeycomb = gameApi:Cache("Honeycomb")
-								local v140 = nil
+								local value6 = nil
 
-								while not v140 and v139 > 0 do
+								while not value6 and num3 > 0 do
 									for k in pairs(Honeycomb) do
 										for k2 in pairs(Honeycomb[k]) do
-											local v141 = Honeycomb[k][k2]
-											local v142 = questData.bond[v141.Lvl] - v141.Bond
+											local value7 = Honeycomb[k][k2]
+											local value8 = questData.bond[value7.Lvl] - value7.Bond
 
-											if not (v141.Lvl + 1 ~= v139 or not (not v140 or v142 < v140.Needed)) then
-												v140 = { Col = k, Row = k2, Needed = v142 }
+											if not (value7.Lvl + 1 ~= num3 or not (not value6 or value8 < value6.Needed)) then
+												value6 = { Col = k, Row = k2, Needed = value8 }
 											end
 										end
 									end
 
-									if not v140 then
-										v139 -= 1
+									if not value6 then
+										num3 -= 1
 									end
 								end
 
-								if not v140 or not inventory:Has({ Treat = math.ceil(v140.Needed / 10) }) then
+								if not value6 or not inventory:Has({ Treat = math.ceil(value6.Needed / 10) }) then
 									continue
 								end
 
-								if not v134.Progress or not v134.Level then
-									questData:Status("Debug:", "lvl", v139, v137 .. " / " .. v138, desc)
+								if not val.Progress or not val.Level then
+									questData:Status("Debug:", "lvl", num3, num .. " / " .. num2, desc)
 								end
 
-								local col = v140.Col
-								local row = v140.Row
-								questData:Status("Auto Quest: Feeding x" .. math.ceil(v140.Needed / 10), "Treats to bee at", col, row)
+								local col = value6.Col
+								local row = value6.Row
+								questData:Status("Auto Quest: Feeding x" .. math.ceil(value6.Needed / 10), "Treats to bee at", col, row)
 
 								if distanceTo(localPlayer.SpawnPos.Value.Position, true) > 9 then
 									goTo(localPlayer.SpawnPos.Value.Position, "Hive")
 									task.wait(0.5)
 								end
 
-								local ConstructHiveCellFromEgg, v141, v142, v143, v144 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(v140.Col, 2)), tonumber(string.sub(v140.Row, 2)), "Treat", math.ceil(v140.Needed / 10), false)
+								local ConstructHiveCellFromEgg, value7, value8, value9, value10 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(value6.Col, 2)), tonumber(string.sub(value6.Row, 2)), "Treat", math.ceil(value6.Needed / 10), false)
 
-								if not v141 then
+								if not value7 then
 									logger.warn("Failed to feed bee")
 									task.wait(1)
 								else
 									gameApi:CacheSet({ "Eggs", "Treat" }, ConstructHiveCellFromEgg)
-									gameApi:CacheSet("Honeycomb", v142)
-									gameApi:CacheSet("DiscoveredBees", v143)
-									gameApi:CacheSet({ "Totals", "EggUses" }, v144)
+									gameApi:CacheSet("Honeycomb", value8)
+									gameApi:CacheSet("DiscoveredBees", value9)
+									gameApi:CacheSet({ "Totals", "EggUses" }, value10)
 									task.wait(0.25)
 									error("return", 0)
 								end
@@ -58989,7 +58989,7 @@ do
 							end
 						end
 
-						if v134.Type == "RJ" then
+						if val.Type == "RJ" then
 							local ok17 = not questData.feedtime
 
 							if not ok17 then
@@ -58998,58 +58998,58 @@ do
 							end
 
 							if ok17 then
-								local v135, v136
+								local value4, value5
 
-								if not v134.Progress then
-									v135, v136 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+								if not val.Progress then
+									value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
 								else
-									v135 = v134.Progress[2]
-									v136 = v134.Progress[3]
+									value4 = val.Progress[2]
+									value5 = val.Progress[3]
 								end
 
 								questData.feedtime = os.clock()
-								if not v135 or not v136 then
+								if not value4 or not value5 then
 									continue
 								end
-								local v137 = tonumber(v135)
-								local v138 = tonumber(v136)
+								local num = tonumber(value4)
+								local num2 = tonumber(value5)
 								local Honeycomb = gameApi:Cache("Honeycomb")
-								local v139 = nil
+								local value6 = nil
 
 								for k in pairs(Honeycomb) do
 									for k2 in pairs(Honeycomb[k]) do
-										local v140 = Honeycomb[k][k2]
-										local v141 = false
-										local type_ = v140.Type
+										local value7 = Honeycomb[k][k2]
+										local flag = false
+										local type_ = value7.Type
 
-										for _, trait in ipairs(v140.Traits) do
+										for _, trait in ipairs(value7.Traits) do
 											if trait == "Gifted" then
-												v141 = true
+												flag = true
 												break
 											end
 										end
 
-										if not v141 and (not autoquest.rjbl or not autoquest.rjbl[type_]) and (type_ == "Basic" or type_ == "Bomber" or type_ == "Brave" or type_ == "Bumble" or type_ == "Cool" or type_ == "Hasty" or type_ == "Looker" or type_ == "Rad" or type_ == "Rascal" or type_ == "Stubborn") then
-											v139 = { Col = k, Row = k2 }
+										if not flag and (not autoquest.rjbl or not autoquest.rjbl[type_]) and (type_ == "Basic" or type_ == "Bomber" or type_ == "Brave" or type_ == "Bumble" or type_ == "Cool" or type_ == "Hasty" or type_ == "Looker" or type_ == "Rad" or type_ == "Rascal" or type_ == "Stubborn") then
+											value6 = { Col = k, Row = k2 }
 											break
 										end
 									end
 
-									if not v139 then
+									if not value6 then
 										continue
 									end
 									break
 								end
 
-								if not v139 or not inventory:Has({ ["Royal Jelly"] = 1 }) then
+								if not value6 or not inventory:Has({ ["Royal Jelly"] = 1 }) then
 									continue
 								end
 
-								if not v134.Progress then
-									questData:Status("Debug:", v137 .. " / " .. v138, desc)
+								if not val.Progress then
+									questData:Status("Debug:", num .. " / " .. num2, desc)
 								end
 
-								questData:Status("Auto Quest: Using Royal Jelly on bee at", v139.Col, v139.Row)
+								questData:Status("Auto Quest: Using Royal Jelly on bee at", value6.Col, value6.Row)
 								gameApi:Event("PlayerSettingsEvent", "RollToLegendary", false)
 								gameApi:Event("PlayerSettingsEvent", "RollToMythic", false)
 								gameApi:Event("PlayerSettingsEvent", "RollToMutation", false)
@@ -59060,16 +59060,16 @@ do
 									task.wait(0.5)
 								end
 
-								local ConstructHiveCellFromEgg, v140, v141, v142, v143 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(v139.Col, 2)), tonumber(string.sub(v139.Row, 2)), "RoyalJelly", 1, false)
+								local ConstructHiveCellFromEgg, value7, value8, value9, value10 = gameApi:Event("ConstructHiveCellFromEgg", tonumber(string.sub(value6.Col, 2)), tonumber(string.sub(value6.Row, 2)), "RoyalJelly", 1, false)
 
-								if not v140 then
+								if not value7 then
 									logger.warn("Failed to use royal jelly")
 									task.wait(1)
 								else
 									gameApi:CacheSet({ "Eggs", "RoyalJelly" }, ConstructHiveCellFromEgg)
-									gameApi:CacheSet("Honeycomb", v141)
-									gameApi:CacheSet("DiscoveredBees", v142)
-									gameApi:CacheSet({ "Totals", "EggUses" }, v143)
+									gameApi:CacheSet("Honeycomb", value8)
+									gameApi:CacheSet("DiscoveredBees", value9)
+									gameApi:CacheSet({ "Totals", "EggUses" }, value10)
 									task.wait(0.25)
 									error("return", 0)
 								end
@@ -59078,12 +59078,12 @@ do
 							end
 						end
 
-						if v134.Type == "Donate" then
+						if val.Type == "Donate" then
 							if not getTimer("Wind Shrine") then
-								local v135 = gameApi:Cache({ "SystemTimes", "WindShrine" })
+								local value4 = gameApi:Cache({ "SystemTimes", "WindShrine" })
 
-								if not (not v135 or not (workspace:GetServerTimeNow() - v135 < 3600)) then
-									setTimer("Wind Shrine", os.time() + (3600 - (workspace:GetServerTimeNow() - v135)))
+								if not (not value4 or not (workspace:GetServerTimeNow() - value4 < 3600)) then
+									setTimer("Wind Shrine", os.time() + (3600 - (workspace:GetServerTimeNow() - value4)))
 								end
 							end
 
@@ -59094,19 +59094,19 @@ do
 								end
 							end
 
-							local forcedItem = findMatch(questData.shrineitems, v134.Description)
+							local forcedItem = findMatch(questData.shrineitems, val.Description)
 							local currentText, targetText
 
-							if not v134.Progress then
-								currentText, targetText = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+							if not val.Progress then
+								currentText, targetText = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
 							else
-								currentText = v134.Progress[2]
-								targetText = v134.Progress[3]
+								currentText = val.Progress[2]
+								targetText = val.Progress[3]
 							end
 
 							if not (not forcedItem or not currentText or not targetText) then
-								local v138 = tonumber(currentText)
-								local forcedAmount = tonumber(targetText) - v138
+								local num = tonumber(currentText)
+								local forcedAmount = tonumber(targetText) - num
 
 								if forcedItem == "Strawberries" then
 									forcedItem = "Strawberry"
@@ -59124,29 +59124,29 @@ do
 									windShrine(forcedItem, forcedAmount)
 								end
 							end
-						elseif v134.Type ~= "Toy" then
-							if v134.Type ~= "Match" then
-								if v134.Type ~= "Puffshrooms" then
-									local character, name, tool_2, ok, v135, v136, v137, v138, v139, v140, time, v141, v142, v143, now, v144, v145, heartbeat, ok18, jellyBeans, position2, v146, currentCamera, v147, gyro, jellyBeans2, v148, v149, v150, v151
+						elseif val.Type ~= "Toy" then
+							if val.Type ~= "Match" then
+								if val.Type ~= "Puffshrooms" then
+									local character, name, tool_2, ok, value4, value5, value6, value7, value8, value9, time, value10, value11, value12, now, value13, value14, heartbeat, ok18, jellyBeans, position2, value15, currentCamera, value16, gyro, jellyBeans2, value17, value18, value19, value20
 
-									if not (v134.Type ~= "Craft" or not (state.bees >= 15)) then
+									if not (val.Type ~= "Craft" or not (state.bees >= 15)) then
 										if getTimer("Blender") then
 											local now2 = os.time()
 
 											if not (getTimer("Blender") < now2) then
-												if v134.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
-													if v134.Type == "Tool" then
-														tool_ = v134.Tool
+												if val.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
+													if val.Type == "Tool" then
+														tool_ = val.Tool
 														character = localPlayer.Character
 
-														if not character:FindFirstChild(v134.Tool) and not autoquest.oldtool then
+														if not character:FindFirstChild(val.Tool) and not autoquest.oldtool then
 															name = nil
-															tool_2 = v134.Tool
+															tool_2 = val.Tool
 
 															if table.find(gameApi:Cache().Collectors, tool_2) then
 																for _, child in ipairs(workspace.Shops:GetChildren()) do
 																	for _, child2 in ipairs(child.Items:GetChildren()) do
-																		if child2.Name == v134.Tool then
+																		if child2.Name == val.Tool then
 																			name = child.Name
 																			break
 																		end
@@ -59154,7 +59154,7 @@ do
 																end
 
 																if not (not name or not (name == "BasicShop" or not ((name ~= "ProShop" or not (state.bees >= 10)) and (name ~= "Mountaintop" or not (state.bees >= 25)) and (name ~= "BlueHQ" or not state.bluehq) and (name ~= "RedHQ" or not state.redhq)))) then
-																	questData:Status("Auto Quest: Equipping", v134.Tool)
+																	questData:Status("Auto Quest: Equipping", val.Tool)
 																	ok = nil
 
 																	for i = 1, 4 do
@@ -59167,7 +59167,7 @@ do
 																	end
 
 																	task.wait(0.25)
-																	gameApi:Event("ItemPackageEvent", "Equip", { Type = v134.Tool, Category = "Collector" })
+																	gameApi:Event("ItemPackageEvent", "Equip", { Type = val.Tool, Category = "Collector" })
 																	gameApi:CacheUpdate()
 
 																	if not autoquest.oldtool then
@@ -59179,58 +59179,58 @@ do
 														end
 													end
 												else
-													if not v134.Progress then
-														v135, v136 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
-														v137 = v135
-														v138 = v136
+													if not val.Progress then
+														value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+														value6 = value4
+														value7 = value5
 													else
-														v137 = v134.Progress[2]
-														v138 = v134.Progress[3]
+														value6 = val.Progress[2]
+														value7 = val.Progress[3]
 													end
 
-													if not (not v137 or not v138) then
-														v139 = tonumber(v137)
-														v140 = tonumber(v138) - v139
+													if not (not value6 or not value7) then
+														value8 = tonumber(value6)
+														value9 = tonumber(value7) - value8
 
 														if not questData.players then
 															questData.players = {}
 														end
 
-														for _, v152 in game.Players:GetPlayers() do
-															if v152 ~= localPlayer then
-																if questData.players[v152.Name] then
-																	time = questData.players[v152.Name].time
+														for _, val2 in game.Players:GetPlayers() do
+															if val2 ~= localPlayer then
+																if questData.players[val2.Name] then
+																	time = questData.players[val2.Name].time
 																	if not (os.clock() - time > 3) then
 																		continue
 																	end
 																end
 
-																v141 = workspace:FindFirstChild(v152.Name)
+																value10 = workspace:FindFirstChild(val2.Name)
 
-																if v141 then
-																	questData.players[v152.Name] = {
+																if value10 then
+																	questData.players[val2.Name] = {
 																		time = os.clock(),
-																		pos = v141.HumanoidRootPart.Position,
+																		pos = value10.HumanoidRootPart.Position,
 																	}
 																end
 															end
 														end
 
 														for k, player in pairs(questData.players) do
-															v142 = workspace:FindFirstChild(k)
+															value11 = workspace:FindFirstChild(k)
 
-															if not (not v142 or not ((v142.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
-																v143 = getFieldAt(v142.HumanoidRootPart.Position)
+															if not (not value11 or not ((value11.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
+																value12 = getFieldAt(value11.HumanoidRootPart.Position)
 
-																if not (not v143 or not availableFields[v143.Name]) then
-																	questData:Status("Auto Quest: Sharing jelly beans with", k, "in", v143.Name)
-																	now, v144, v145 = os.clock()
+																if not (not value12 or not availableFields[value12.Name]) then
+																	questData:Status("Auto Quest: Sharing jelly beans with", k, "in", value12.Name)
+																	now, value13, value14 = os.clock()
 
-																	while not v144 and v140 > 0 and os.clock() - now < 300 do
+																	while not value13 and value9 > 0 and os.clock() - now < 300 do
 																		heartbeat = RunService.Heartbeat
 
 																		if heartbeat:Wait() then
-																			setField(v143.Name)
+																			setField(value12.Name)
 																			goToField()
 																			ok18 = not cache.Materials["Jelly Beans"]
 
@@ -59240,9 +59240,9 @@ do
 																			end
 
 																			if ok18 then
-																				position2 = v143.Position
-																				v146 = v143.Size / 2
-																				walkTo(Vector3.new(position2.X + v146.X, position2.Y, position2.Z + v146.Z), true, 8)
+																				position2 = value12.Position
+																				value15 = value12.Size / 2
+																				walkTo(Vector3.new(position2.X + value15.X, position2.Y, position2.Z + value15.Z), true, 8)
 
 																				if cfg.face.method ~= "BodyGyro" then
 																					if UserInputService.MouseIcon ~= "rbxasset://textures/MouseLockedCursor.png" then
@@ -59261,7 +59261,7 @@ do
 																				else
 																					state.stopface = true
 																					state.questgyro = true
-																					v147 = getRootPart()
+																					value16 = getRootPart()
 																					gyro = state.gyro
 
 																					if not gyro then
@@ -59269,11 +59269,11 @@ do
 																						state.gyro = gyro
 																						gyro.D = 0
 																						gyro.P = 5000
-																						gyro.Parent = v147
+																						gyro.Parent = value16
 																					end
 
 																					gyro.MaxTorque = Vector3.new(0, math.huge, 0)
-																					gyro.CFrame = CFrame.new(v147.Position, position2)
+																					gyro.CFrame = CFrame.new(value16.Position, position2)
 																					task.wait(0.5)
 																					gyro:Destroy()
 																					state.gyro = nil
@@ -59281,8 +59281,8 @@ do
 																					state.questgyro = nil
 																				end
 
-																				v145 = true
-																				logger.log("Jelly beans left to share:", v140)
+																				value14 = true
+																				logger.log("Jelly beans left to share:", value9)
 																				inventory:Use("Jelly Beans", 1)
 																				cache.Materials["Jelly Beans"] = os.time()
 																				saveConfig(true)
@@ -59302,29 +59302,29 @@ do
 																					continue
 																				end
 																			else
-																				if v145 then
+																				if value14 then
 																					jellyBeans2 = cache.Materials["Jelly Beans"]
 
 																					if os.time() - jellyBeans2 > 15 then
-																						v148 = gameApi:Cache()
+																						value17 = gameApi:Cache()
 
-																						for _, v152 in ipairs(v148.Quests.Active) do
-																							v149 = secureCall(gameApi.Quests.Get, nil, v152.Name)
+																						for _, val2 in ipairs(value17.Quests.Active) do
+																							value18 = secureCall(gameApi.Quests.Get, nil, val2.Name)
 
-																							if not (not v149 or not (not v149.Hidden and v149.Name == v134.Title)) then
-																								v150 = secureCall(gameApi.Quests.Progress, nil, v149.Name, v148)
+																							if not (not value18 or not (not value18.Hidden and value18.Name == val.Title)) then
+																								value19 = secureCall(gameApi.Quests.Progress, nil, value18.Name, value17)
 
-																								if not (not v150 or type(v150) ~= "table") then
-																									for k2, v153 in pairs(v150) do
-																										if not (v149.Tasks[k2].Type ~= "Share Jelly Beans" or not v153[2] or not v153[3]) then
-																											v151 = v153[3] - v153[2]
+																								if not (not value19 or type(value19) ~= "table") then
+																									for k2, val3 in pairs(value19) do
+																										if not (value18.Tasks[k2].Type ~= "Share Jelly Beans" or not val3[2] or not val3[3]) then
+																											value20 = val3[3] - val3[2]
 
-																											if v140 ~= v151 then
-																												logger.log("Amount shared:", v140 - v151)
-																												v140 = v151
+																											if value9 ~= value20 then
+																												logger.log("Amount shared:", value9 - value20)
+																												value9 = value20
 																											else
 																												logger.log("Amount shared: 0")
-																												v144 = true
+																												value13 = true
 																											end
 																										end
 																									end
@@ -59332,7 +59332,7 @@ do
 																							end
 																						end
 
-																						v145 = false
+																						value14 = false
 																					end
 																				end
 
@@ -59365,20 +59365,20 @@ do
 										end
 
 										if not workspace.Gates["Badge Build Gate"].Door.CanCollide then
-											useBlender("Gumdrops", v134.Progress[3] - v134.Progress[2], true, "Auto Quest:")
-										elseif v134.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
-											if v134.Type == "Tool" then
-												tool_ = v134.Tool
+											useBlender("Gumdrops", val.Progress[3] - val.Progress[2], true, "Auto Quest:")
+										elseif val.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
+											if val.Type == "Tool" then
+												tool_ = val.Tool
 												character = localPlayer.Character
 
-												if not character:FindFirstChild(v134.Tool) and not autoquest.oldtool then
+												if not character:FindFirstChild(val.Tool) and not autoquest.oldtool then
 													name = nil
-													tool_2 = v134.Tool
+													tool_2 = val.Tool
 
 													if table.find(gameApi:Cache().Collectors, tool_2) then
 														for _, child in ipairs(workspace.Shops:GetChildren()) do
 															for _, child2 in ipairs(child.Items:GetChildren()) do
-																if child2.Name == v134.Tool then
+																if child2.Name == val.Tool then
 																	name = child.Name
 																	break
 																end
@@ -59386,7 +59386,7 @@ do
 														end
 
 														if not (not name or not (name == "BasicShop" or not ((name ~= "ProShop" or not (state.bees >= 10)) and (name ~= "Mountaintop" or not (state.bees >= 25)) and (name ~= "BlueHQ" or not state.bluehq) and (name ~= "RedHQ" or not state.redhq)))) then
-															questData:Status("Auto Quest: Equipping", v134.Tool)
+															questData:Status("Auto Quest: Equipping", val.Tool)
 															ok = nil
 
 															for i = 1, 4 do
@@ -59399,7 +59399,7 @@ do
 															end
 
 															task.wait(0.25)
-															gameApi:Event("ItemPackageEvent", "Equip", { Type = v134.Tool, Category = "Collector" })
+															gameApi:Event("ItemPackageEvent", "Equip", { Type = val.Tool, Category = "Collector" })
 															gameApi:CacheUpdate()
 
 															if not autoquest.oldtool then
@@ -59411,58 +59411,58 @@ do
 												end
 											end
 										else
-											if not v134.Progress then
-												v135, v136 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
-												v137 = v135
-												v138 = v136
+											if not val.Progress then
+												value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+												value6 = value4
+												value7 = value5
 											else
-												v137 = v134.Progress[2]
-												v138 = v134.Progress[3]
+												value6 = val.Progress[2]
+												value7 = val.Progress[3]
 											end
 
-											if not (not v137 or not v138) then
-												v139 = tonumber(v137)
-												v140 = tonumber(v138) - v139
+											if not (not value6 or not value7) then
+												value8 = tonumber(value6)
+												value9 = tonumber(value7) - value8
 
 												if not questData.players then
 													questData.players = {}
 												end
 
-												for _, v152 in game.Players:GetPlayers() do
-													if v152 ~= localPlayer then
-														if questData.players[v152.Name] then
-															time = questData.players[v152.Name].time
+												for _, val2 in game.Players:GetPlayers() do
+													if val2 ~= localPlayer then
+														if questData.players[val2.Name] then
+															time = questData.players[val2.Name].time
 															if not (os.clock() - time > 3) then
 																continue
 															end
 														end
 
-														v141 = workspace:FindFirstChild(v152.Name)
+														value10 = workspace:FindFirstChild(val2.Name)
 
-														if v141 then
-															questData.players[v152.Name] = {
+														if value10 then
+															questData.players[val2.Name] = {
 																time = os.clock(),
-																pos = v141.HumanoidRootPart.Position,
+																pos = value10.HumanoidRootPart.Position,
 															}
 														end
 													end
 												end
 
 												for k, player in pairs(questData.players) do
-													v142 = workspace:FindFirstChild(k)
+													value11 = workspace:FindFirstChild(k)
 
-													if not (not v142 or not ((v142.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
-														v143 = getFieldAt(v142.HumanoidRootPart.Position)
+													if not (not value11 or not ((value11.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
+														value12 = getFieldAt(value11.HumanoidRootPart.Position)
 
-														if not (not v143 or not availableFields[v143.Name]) then
-															questData:Status("Auto Quest: Sharing jelly beans with", k, "in", v143.Name)
-															now, v144, v145 = os.clock()
+														if not (not value12 or not availableFields[value12.Name]) then
+															questData:Status("Auto Quest: Sharing jelly beans with", k, "in", value12.Name)
+															now, value13, value14 = os.clock()
 
-															while not v144 and v140 > 0 and os.clock() - now < 300 do
+															while not value13 and value9 > 0 and os.clock() - now < 300 do
 																heartbeat = RunService.Heartbeat
 
 																if heartbeat:Wait() then
-																	setField(v143.Name)
+																	setField(value12.Name)
 																	goToField()
 																	ok18 = not cache.Materials["Jelly Beans"]
 
@@ -59472,9 +59472,9 @@ do
 																	end
 
 																	if ok18 then
-																		position2 = v143.Position
-																		v146 = v143.Size / 2
-																		walkTo(Vector3.new(position2.X + v146.X, position2.Y, position2.Z + v146.Z), true, 8)
+																		position2 = value12.Position
+																		value15 = value12.Size / 2
+																		walkTo(Vector3.new(position2.X + value15.X, position2.Y, position2.Z + value15.Z), true, 8)
 
 																		if cfg.face.method ~= "BodyGyro" then
 																			if UserInputService.MouseIcon ~= "rbxasset://textures/MouseLockedCursor.png" then
@@ -59493,7 +59493,7 @@ do
 																		else
 																			state.stopface = true
 																			state.questgyro = true
-																			v147 = getRootPart()
+																			value16 = getRootPart()
 																			gyro = state.gyro
 
 																			if not gyro then
@@ -59501,11 +59501,11 @@ do
 																				state.gyro = gyro
 																				gyro.D = 0
 																				gyro.P = 5000
-																				gyro.Parent = v147
+																				gyro.Parent = value16
 																			end
 
 																			gyro.MaxTorque = Vector3.new(0, math.huge, 0)
-																			gyro.CFrame = CFrame.new(v147.Position, position2)
+																			gyro.CFrame = CFrame.new(value16.Position, position2)
 																			task.wait(0.5)
 																			gyro:Destroy()
 																			state.gyro = nil
@@ -59513,8 +59513,8 @@ do
 																			state.questgyro = nil
 																		end
 
-																		v145 = true
-																		logger.log("Jelly beans left to share:", v140)
+																		value14 = true
+																		logger.log("Jelly beans left to share:", value9)
 																		inventory:Use("Jelly Beans", 1)
 																		cache.Materials["Jelly Beans"] = os.time()
 																		saveConfig(true)
@@ -59534,29 +59534,29 @@ do
 																			continue
 																		end
 																	else
-																		if v145 then
+																		if value14 then
 																			jellyBeans2 = cache.Materials["Jelly Beans"]
 
 																			if os.time() - jellyBeans2 > 15 then
-																				v148 = gameApi:Cache()
+																				value17 = gameApi:Cache()
 
-																				for _, v152 in ipairs(v148.Quests.Active) do
-																					v149 = secureCall(gameApi.Quests.Get, nil, v152.Name)
+																				for _, val2 in ipairs(value17.Quests.Active) do
+																					value18 = secureCall(gameApi.Quests.Get, nil, val2.Name)
 
-																					if not (not v149 or not (not v149.Hidden and v149.Name == v134.Title)) then
-																						v150 = secureCall(gameApi.Quests.Progress, nil, v149.Name, v148)
+																					if not (not value18 or not (not value18.Hidden and value18.Name == val.Title)) then
+																						value19 = secureCall(gameApi.Quests.Progress, nil, value18.Name, value17)
 
-																						if not (not v150 or type(v150) ~= "table") then
-																							for k2, v153 in pairs(v150) do
-																								if not (v149.Tasks[k2].Type ~= "Share Jelly Beans" or not v153[2] or not v153[3]) then
-																									v151 = v153[3] - v153[2]
+																						if not (not value19 or type(value19) ~= "table") then
+																							for k2, val3 in pairs(value19) do
+																								if not (value18.Tasks[k2].Type ~= "Share Jelly Beans" or not val3[2] or not val3[3]) then
+																									value20 = val3[3] - val3[2]
 
-																									if v140 ~= v151 then
-																										logger.log("Amount shared:", v140 - v151)
-																										v140 = v151
+																									if value9 ~= value20 then
+																										logger.log("Amount shared:", value9 - value20)
+																										value9 = value20
 																									else
 																										logger.log("Amount shared: 0")
-																										v144 = true
+																										value13 = true
 																									end
 																								end
 																							end
@@ -59564,7 +59564,7 @@ do
 																					end
 																				end
 
-																				v145 = false
+																				value14 = false
 																			end
 																		end
 
@@ -59591,19 +59591,19 @@ do
 												end
 											end
 										end
-									elseif v134.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
-										if v134.Type == "Tool" then
-											tool_ = v134.Tool
+									elseif val.Type ~= "Share" or not inventory:Has({ ["Jelly Beans"] = 1 }) then
+										if val.Type == "Tool" then
+											tool_ = val.Tool
 											character = localPlayer.Character
 
-											if not character:FindFirstChild(v134.Tool) and not autoquest.oldtool then
+											if not character:FindFirstChild(val.Tool) and not autoquest.oldtool then
 												name = nil
-												tool_2 = v134.Tool
+												tool_2 = val.Tool
 
 												if table.find(gameApi:Cache().Collectors, tool_2) then
 													for _, child in ipairs(workspace.Shops:GetChildren()) do
 														for _, child2 in ipairs(child.Items:GetChildren()) do
-															if child2.Name == v134.Tool then
+															if child2.Name == val.Tool then
 																name = child.Name
 																break
 															end
@@ -59611,7 +59611,7 @@ do
 													end
 
 													if not (not name or not (name == "BasicShop" or not ((name ~= "ProShop" or not (state.bees >= 10)) and (name ~= "Mountaintop" or not (state.bees >= 25)) and (name ~= "BlueHQ" or not state.bluehq) and (name ~= "RedHQ" or not state.redhq)))) then
-														questData:Status("Auto Quest: Equipping", v134.Tool)
+														questData:Status("Auto Quest: Equipping", val.Tool)
 														ok = nil
 
 														for i = 1, 4 do
@@ -59624,7 +59624,7 @@ do
 														end
 
 														task.wait(0.25)
-														gameApi:Event("ItemPackageEvent", "Equip", { Type = v134.Tool, Category = "Collector" })
+														gameApi:Event("ItemPackageEvent", "Equip", { Type = val.Tool, Category = "Collector" })
 														gameApi:CacheUpdate()
 
 														if not autoquest.oldtool then
@@ -59636,18 +59636,18 @@ do
 											end
 										end
 									else
-										if not v134.Progress then
-											v135, v136 = string.match(string.gsub(v134.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
-											v137 = v135
-											v138 = v136
+										if not val.Progress then
+											value4, value5 = string.match(string.gsub(val.Description, ",", ""), "(%d+%a?)/(%d+%a?)")
+											value6 = value4
+											value7 = value5
 										else
-											v137 = v134.Progress[2]
-											v138 = v134.Progress[3]
+											value6 = val.Progress[2]
+											value7 = val.Progress[3]
 										end
 
-										if not (not v137 or not v138) then
-											v139 = tonumber(v137)
-											v140 = tonumber(v138) - v139
+										if not (not value6 or not value7) then
+											value8 = tonumber(value6)
+											value9 = tonumber(value7) - value8
 
 											if not questData.players then
 												questData.players = {}
@@ -59662,29 +59662,29 @@ do
 														end
 													end
 
-													v141 = workspace:FindFirstChild(otherPlayer.Name)
+													value10 = workspace:FindFirstChild(otherPlayer.Name)
 
-													if v141 then
-														questData.players[otherPlayer.Name] = { time = os.clock(), pos = v141.HumanoidRootPart.Position }
+													if value10 then
+														questData.players[otherPlayer.Name] = { time = os.clock(), pos = value10.HumanoidRootPart.Position }
 													end
 												end
 											end
 
 											for k, player in pairs(questData.players) do
-												v142 = workspace:FindFirstChild(k)
+												value11 = workspace:FindFirstChild(k)
 
-												if not (not v142 or not ((v142.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
-													v143 = getFieldAt(v142.HumanoidRootPart.Position)
+												if not (not value11 or not ((value11.HumanoidRootPart.Position - player.pos).magnitude > 5)) then
+													value12 = getFieldAt(value11.HumanoidRootPart.Position)
 
-													if not (not v143 or not availableFields[v143.Name]) then
-														questData:Status("Auto Quest: Sharing jelly beans with", k, "in", v143.Name)
-														now, v144, v145 = os.clock()
+													if not (not value12 or not availableFields[value12.Name]) then
+														questData:Status("Auto Quest: Sharing jelly beans with", k, "in", value12.Name)
+														now, value13, value14 = os.clock()
 
-														while not v144 and v140 > 0 and os.clock() - now < 300 do
+														while not value13 and value9 > 0 and os.clock() - now < 300 do
 															heartbeat = RunService.Heartbeat
 
 															if heartbeat:Wait() then
-																setField(v143.Name)
+																setField(value12.Name)
 																goToField()
 																ok18 = not cache.Materials["Jelly Beans"]
 
@@ -59694,9 +59694,9 @@ do
 																end
 
 																if ok18 then
-																	position2 = v143.Position
-																	v146 = v143.Size / 2
-																	walkTo(Vector3.new(position2.X + v146.X, position2.Y, position2.Z + v146.Z), true, 8)
+																	position2 = value12.Position
+																	value15 = value12.Size / 2
+																	walkTo(Vector3.new(position2.X + value15.X, position2.Y, position2.Z + value15.Z), true, 8)
 
 																	if cfg.face.method ~= "BodyGyro" then
 																		if UserInputService.MouseIcon ~= "rbxasset://textures/MouseLockedCursor.png" then
@@ -59715,7 +59715,7 @@ do
 																	else
 																		state.stopface = true
 																		state.questgyro = true
-																		v147 = getRootPart()
+																		value16 = getRootPart()
 																		gyro = state.gyro
 
 																		if not gyro then
@@ -59723,11 +59723,11 @@ do
 																			state.gyro = gyro
 																			gyro.D = 0
 																			gyro.P = 5000
-																			gyro.Parent = v147
+																			gyro.Parent = value16
 																		end
 
 																		gyro.MaxTorque = Vector3.new(0, math.huge, 0)
-																		gyro.CFrame = CFrame.new(v147.Position, position2)
+																		gyro.CFrame = CFrame.new(value16.Position, position2)
 																		task.wait(0.5)
 																		gyro:Destroy()
 																		state.gyro = nil
@@ -59735,8 +59735,8 @@ do
 																		state.questgyro = nil
 																	end
 
-																	v145 = true
-																	logger.log("Jelly beans left to share:", v140)
+																	value14 = true
+																	logger.log("Jelly beans left to share:", value9)
 																	inventory:Use("Jelly Beans", 1)
 																	cache.Materials["Jelly Beans"] = os.time()
 																	saveConfig(true)
@@ -59756,29 +59756,29 @@ do
 																		continue
 																	end
 																else
-																	if v145 then
+																	if value14 then
 																		jellyBeans2 = cache.Materials["Jelly Beans"]
 
 																		if os.time() - jellyBeans2 > 15 then
-																			v148 = gameApi:Cache()
+																			value17 = gameApi:Cache()
 
-																			for _, activeQuest in ipairs(v148.Quests.Active) do
-																				v149 = secureCall(gameApi.Quests.Get, nil, activeQuest.Name)
+																			for _, activeQuest in ipairs(value17.Quests.Active) do
+																				value18 = secureCall(gameApi.Quests.Get, nil, activeQuest.Name)
 
-																				if not (not v149 or not (not v149.Hidden and v149.Name == v134.Title)) then
-																					v150 = secureCall(gameApi.Quests.Progress, nil, v149.Name, v148)
+																				if not (not value18 or not (not value18.Hidden and value18.Name == val.Title)) then
+																					value19 = secureCall(gameApi.Quests.Progress, nil, value18.Name, value17)
 
-																					if not (not v150 or type(v150) ~= "table") then
-																						for k2, taskProgress in pairs(v150) do
-																							if not (v149.Tasks[k2].Type ~= "Share Jelly Beans" or not taskProgress[2] or not taskProgress[3]) then
-																								v151 = taskProgress[3] - taskProgress[2]
+																					if not (not value19 or type(value19) ~= "table") then
+																						for k2, taskProgress in pairs(value19) do
+																							if not (value18.Tasks[k2].Type ~= "Share Jelly Beans" or not taskProgress[2] or not taskProgress[3]) then
+																								value20 = taskProgress[3] - taskProgress[2]
 
-																								if v140 ~= v151 then
-																									logger.log("Amount shared:", v140 - v151)
-																									v140 = v151
+																								if value9 ~= value20 then
+																									logger.log("Amount shared:", value9 - value20)
+																									value9 = value20
 																								else
 																									logger.log("Amount shared: 0")
-																									v144 = true
+																									value13 = true
 																								end
 																							end
 																						end
@@ -59786,7 +59786,7 @@ do
 																				end
 																			end
 
-																			v145 = false
+																			value14 = false
 																		end
 																	end
 
@@ -59814,7 +59814,7 @@ do
 										end
 									end
 								else
-									local match = findMatch(availableFields, v134.Description, true)
+									local match = findMatch(availableFields, val.Description, true)
 
 									if not match then
 										farmPuffshroom(true)
@@ -59842,37 +59842,37 @@ do
 									toyUse:Do("Extreme Memory Match")
 								end
 							end
-						elseif not (not string.find(v134.Description, "Blue Field Booster") or not state.bluehq) then
-							local v135, v136 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Blue Field Booster"])
+						elseif not (not string.find(val.Description, "Blue Field Booster") or not state.bluehq) then
+							local value4, value5 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Blue Field Booster"])
 
-							if not (not v135 or v136 == "Red") then
+							if not (not value4 or value5 == "Red") then
 								toyUse:Do("Blue Field Booster")
 							end
-						elseif not (not string.find(v134.Description, "Red Field Booster") or not (not not (state.bees >= 15) and state.redhq)) then
-							local v135, v136 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Red Field Booster"])
+						elseif not (not string.find(val.Description, "Red Field Booster") or not (not not (state.bees >= 15) and state.redhq)) then
+							local value4, value5 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Red Field Booster"])
 
-							if not (not v135 or v136 == "Red") then
+							if not (not value4 or value5 == "Red") then
 								toyUse:Do("Red Field Booster")
 							end
-						elseif not (not string.find(v134.Description, "Field Booster") or not (state.bees >= 25)) then
-							local v135, v136 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Field Booster"])
+						elseif not (not string.find(val.Description, "Field Booster") or not (state.bees >= 25)) then
+							local value4, value5 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Field Booster"])
 
-							if not (not v135 or v136 == "Red") then
+							if not (not value4 or value5 == "Red") then
 								toyUse:Do("Field Booster")
 							end
-						elseif not string.find(v134.Description, "Blue Portal") or not state.bluehq then
-							if not (not string.find(v134.Description, "Red Portal") or not (not not (state.bees >= 15) and state.redhq)) then
-								local v135, v136 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Red Portal"])
+						elseif not string.find(val.Description, "Blue Portal") or not state.bluehq then
+							if not (not string.find(val.Description, "Red Portal") or not (not not (state.bees >= 15) and state.redhq)) then
+								local value4, value5 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Red Portal"])
 
-								if not (not v135 or v136 == "Red") then
+								if not (not value4 or value5 == "Red") then
 									toyUse:Do("Red Portal")
 									error("return", 0)
 								end
 							end
 						else
-							local v135, v136 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Blue Portal"])
+							local value4, value5 = secureCall(gameApi.ToysText, localPlayer, workspace.Toys["Blue Portal"])
 
-							if not (not v135 or v136 == "Red") then
+							if not (not value4 or value5 == "Red") then
 								toyUse:Do("Blue Portal")
 								error("return", 0)
 							end
@@ -59931,93 +59931,93 @@ do
 					end
 				end
 
-				table.sort(data, function(v134, v135)
+				table.sort(data, function(arg, arg2)
 					if questData.Current then
-						if not (v134.Title ~= questData.Current.Title or v134.Description ~= questData.Current.Description) then
+						if not (arg.Title ~= questData.Current.Title or arg.Description ~= questData.Current.Description) then
 							return true
 						end
 
-						if not (v135.Title ~= questData.Current.Title or v135.Description ~= questData.Current.Description) then
+						if not (arg2.Title ~= questData.Current.Title or arg2.Description ~= questData.Current.Description) then
 							return false
 						end
 					end
 
-					local v136 = 0
-					local v137 = 0
+					local num = 0
+					local num2 = 0
 
-					if v134.Type == "Duped" then
-						v136 += 10
-					elseif v134.Type2 ~= "Field" then
-						if v134.Type2 == "Color" then
-							v136 += 1
+					if arg.Type == "Duped" then
+						num += 10
+					elseif arg.Type2 ~= "Field" then
+						if arg.Type2 == "Color" then
+							num += 1
 						end
 					else
-						v136 += 2
+						num += 2
 					end
 
-					if v135.Type == "Duped" then
-						v137 += 10
-					elseif v135.Type2 ~= "Field" then
-						if v135.Type2 == "Color" then
-							v137 += 1
+					if arg2.Type == "Duped" then
+						num2 += 10
+					elseif arg2.Type2 ~= "Field" then
+						if arg2.Type2 == "Color" then
+							num2 += 1
 						end
 					else
-						v137 += 2
+						num2 += 2
 					end
 
-					if v134.Type == "Goo" then
-						v136 += 5
+					if arg.Type == "Goo" then
+						num += 5
 					end
 
-					if v135.Type == "Goo" then
-						v137 += 5
+					if arg2.Type == "Goo" then
+						num2 += 5
 					end
 
-					if v134.Theme == "Xmas" then
-						v136 += 3
+					if arg.Theme == "Xmas" then
+						num += 3
 					end
 
-					if v135.Theme == "Xmas" then
-						v137 += 3
+					if arg2.Theme == "Xmas" then
+						num2 += 3
 					end
 
-					if v137 < v136 then
+					if num2 < num then
 						return true
 					end
 
-					if v136 ~= v137 then
+					if num ~= num2 then
 						return false
 					end
-					local v138 = string.gsub(v134.Description, ",", "")
-					local v139 = string.gsub(v135.Description, ",", "")
-					return (tonumber(string.match(v138, "%d+")) or string.len(v138)) < (tonumber(string.match(v139, "%d+")) or string.len(v139))
+					local value4 = string.gsub(arg.Description, ",", "")
+					local value5 = string.gsub(arg2.Description, ",", "")
+					return (tonumber(string.match(value4, "%d+")) or string.len(value4)) < (tonumber(string.match(value5, "%d+")) or string.len(value5))
 				end)
 
-				for _, v134 in ipairs(data) do
-					if not (v134.Type == "Farm" or v134.Type == "Goo") then
-						if v134.Type ~= "Duped" or not ((v134.Field ~= "Mountain Top Field" or not tracked.mondo) and (v134.Field ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab))) then
-							if v134.Type ~= "Blooms" then
+				for _, val in ipairs(data) do
+					if not (val.Type == "Farm" or val.Type == "Goo") then
+						if val.Type ~= "Duped" or not ((val.Field ~= "Mountain Top Field" or not tracked.mondo) and (val.Field ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab))) then
+							if val.Type ~= "Blooms" then
 								continue
 							end
 
-							if v134.Field then
-								questData:Status("Auto Quest: Collecting petals in", v134.Field, "(" .. v134.Title .. ")")
+							if val.Field then
+								questData:Status("Auto Quest: Collecting petals in", val.Field, "(" .. val.Title .. ")")
 								options.petals = true
-								questData.Current = v134
-								setField(v134.Field)
+								questData.Current = val
+								setField(val.Field)
 								return
 							end
 
-							if not v134.Color then
+							if not val.Color then
 								continue
 							end
 							local fieldName = nil
 							local ipairs_ = ipairs
-							local v136 = questData.petalfields[string.gsub(v134.Color, " Bloom", "")] or {}
+							local value4 = questData.petalfields[string.gsub(val.Color, " Bloom", "")] or {}
 
-							for _, v137 in ipairs_(v136) do
-								if not (not availableFields[v137] or not ((v137 ~= "Stump Field" or mobCooldown(monsterSpawners.StumpSnail)) and (v137 ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) and (v137 ~= "Mountain Top Field" or not tracked.mondo))) then
-									fieldName = v137
+							for _, val2 in ipairs_(value4) do
+								if not (not availableFields[val2] or not ((val2 ~= "Stump Field" or mobCooldown(monsterSpawners.StumpSnail)) and (val2 ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) and (val2 ~= "Mountain Top Field" or not tracked.mondo))) then
+									fieldName = val2
 									break
 								end
 							end
@@ -60025,33 +60025,33 @@ do
 							if not fieldName then
 								continue
 							end
-							local v137 = "(" .. v134.Title .. ")"
-							questData:Status("Auto Quest: Collecting", string.lower(v134.Color) .. " petals in", fieldName, v137)
+							local text = "(" .. val.Title .. ")"
+							questData:Status("Auto Quest: Collecting", string.lower(val.Color) .. " petals in", fieldName, text)
 							options.petals = true
-							questData.Current = v134
+							questData.Current = val
 							setField(fieldName)
 							return
 						end
 
-						questData:Status("Auto Quest: Collecting duped tokens in " .. v134.Field .. " (" .. v134.Title .. ")")
+						questData:Status("Auto Quest: Collecting duped tokens in " .. val.Field .. " (" .. val.Title .. ")")
 						options.dupedtokensquest = true
-						setField(v134.Field)
+						setField(val.Field)
 						return
 					end
 
-					if not (not v134.Field or not ((v134.Field ~= "Mountain Top Field" or not tracked.mondo) and (v134.Field ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)))) then
-						questData:Status("Auto Quest: Collecting", v134.Type == "Goo" and "goo" or "pollen", "in", v134.Field, "(" .. v134.Title .. ")")
+					if not (not val.Field or not ((val.Field ~= "Mountain Top Field" or not tracked.mondo) and (val.Field ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)))) then
+						questData:Status("Auto Quest: Collecting", val.Type == "Goo" and "goo" or "pollen", "in", val.Field, "(" .. val.Title .. ")")
 
-						if not (v134.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
+						if not (val.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
 							options.gooquest = true
 						end
 
-						questData.Current = v134
-						setField(v134.Field)
+						questData.Current = val
+						setField(val.Field)
 						return
 					end
 
-					if v134.Color == "Blue" then
+					if val.Color == "Blue" then
 						if not (autoquest.bestbluefield ~= "Stump Field" or mobCooldown(monsterSpawners.StumpSnail)) then
 							if not availableFields["Pine Tree Forest"] then
 								controls.bestbluefield.Set("Bamboo Field")
@@ -60060,31 +60060,31 @@ do
 							end
 						end
 
-						questData:Status("Auto Quest: Collecting", v134.Type == "Goo" and "goo" or string.lower(v134.Color) .. " pollen", "in", autoquest.bestbluefield, "(" .. v134.Title .. ")")
+						questData:Status("Auto Quest: Collecting", val.Type == "Goo" and "goo" or string.lower(val.Color) .. " pollen", "in", autoquest.bestbluefield, "(" .. val.Title .. ")")
 
-						if not (v134.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
+						if not (val.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
 							options.gooquest = true
 						end
 
-						questData.Current = v134
+						questData.Current = val
 						setField(autoquest.bestbluefield)
 						return
 					end
 
-					if v134.Color == "Red" then
-						questData:Status("Auto Quest: Collecting", v134.Type == "Goo" and "goo" or string.lower(v134.Color) .. " pollen", "in", autoquest.bestredfield, "(" .. v134.Title .. ")")
+					if val.Color == "Red" then
+						questData:Status("Auto Quest: Collecting", val.Type == "Goo" and "goo" or string.lower(val.Color) .. " pollen", "in", autoquest.bestredfield, "(" .. val.Title .. ")")
 
-						if not (v134.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
+						if not (val.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
 							options.gooquest = true
 						end
 
-						questData.Current = v134
+						questData.Current = val
 						setField(autoquest.bestredfield)
 						return
 					end
 
-					if v134.Color ~= "White" then
-						if not v134.Field and not (v134.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
+					if val.Color ~= "White" then
+						if not val.Field and not (val.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
 							options.gooquest = true
 						end
 
@@ -60095,13 +60095,13 @@ do
 						autoquest.bestwhitefield = "Spider Field"
 					end
 
-					questData:Status("Auto Quest: Collecting", v134.Type == "Goo" and "goo" or string.lower(v134.Color) .. " pollen", "in", autoquest.bestwhitefield, "(" .. v134.Title .. ")")
+					questData:Status("Auto Quest: Collecting", val.Type == "Goo" and "goo" or string.lower(val.Color) .. " pollen", "in", autoquest.bestwhitefield, "(" .. val.Title .. ")")
 
-					if not (v134.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
+					if not (val.Type ~= "Goo" or autoquest.goomethod ~= "Gumdrops") then
 						options.gooquest = true
 					end
 
-					questData.Current = v134
+					questData.Current = val
 					setField(autoquest.bestwhitefield)
 					return
 				end
@@ -60199,18 +60199,18 @@ do
 		whitepollen = { "White Pollen", "White Flowers" },
 		frame = localPlayer.PlayerGui.ScreenGui.RoboBearPrompt,
 		challenge = localPlayer.PlayerGui.ScreenGui.ChallengeInfo.RBChallengeInfo,
-		HandleCogmowers = function(v131, allowNormalCogs)
+		HandleCogmowers = function(arg, allowNormalCogs)
 			local goldcogs = nil
 			local cogField = nil
 			local cogType = nil
 
 			if cfg.rbc.goldcogmowers then
-				goldcogs, cogField = v131.Mob("goldcogs", true)
+				goldcogs, cogField = arg.Mob("goldcogs", true)
 				cogType = "goldcogs"
 			end
 
 			if not goldcogs and allowNormalCogs then
-				goldcogs, cogField = v131.Mob("cogs", true)
+				goldcogs, cogField = arg.Mob("cogs", true)
 				cogType = "cogs"
 			end
 
@@ -60239,7 +60239,7 @@ do
 								now = os.clock()
 							end
 
-							goldcogs = v131.Mob(cogType)
+							goldcogs = arg.Mob(cogType)
 
 							if cogField.Name ~= "Mountain Top Field" or not tracked.mondo then
 								local farmOptions = {}
@@ -60254,17 +60254,17 @@ do
 								end
 
 								if cfg.rbc.materialsenabled then
-									local v136 = useItems
+									local value4 = useItems
 
 									local materialOptions = {
 										RBC = true,
-										Round = "Round " .. (tonumber(string.match(v131.challenge.MainFrame.RoundLabel.Text, "%d+")) or 99),
+										Round = "Round " .. (tonumber(string.match(arg.challenge.MainFrame.RoundLabel.Text, "%d+")) or 99),
 									}
 
 									local mobs = {}
 									mobs[cogType == "goldcogs" and "Golden Cogmowers" or "Field Cogmowers"] = true
 									materialOptions.Mobs = mobs
-									v136(materialOptions)
+									value4(materialOptions)
 								end
 
 								if cfg.face.shiftlock then
@@ -60341,14 +60341,14 @@ do
 					break
 				end
 
-				if (not allowNormalCogs or string.find(allowNormalCogs.Text, "Complete")) and (not cfg.rbc.goldcogmowers or not v131.Mob("goldcogs", true)) then
+				if (not allowNormalCogs or string.find(allowNormalCogs.Text, "Complete")) and (not cfg.rbc.goldcogmowers or not arg.Mob("goldcogs", true)) then
 					return true
 				end
-				v131:HandleCogmowers(allowNormalCogs)
+				arg:HandleCogmowers(allowNormalCogs)
 			end
 		end,
-		Mob = function(mobType, v132)
-			local v133 = nil
+		Mob = function(mobType, arg)
+			local value4 = nil
 
 			for k in pairs(tracked[mobType]) do
 				local Body = k:FindFirstChild("Body")
@@ -60356,20 +60356,20 @@ do
 				if Body then
 					local field = getFieldAt(Body.Position)
 
-					if not (not field or (not v132 or not availableFields[field.Name]) and field ~= currentField) then
+					if not (not field or (not arg or not availableFields[field.Name]) and field ~= currentField) then
 						local distance = distanceTo(Body.Position)
 
-						if not v133 or distance < v133.d then
-							v133 = { d = distance, v = Body, field = field }
+						if not value4 or distance < value4.d then
+							value4 = { d = distance, v = Body, field = field }
 						end
 					end
 				end
 			end
 
-			if not v133 then
+			if not value4 then
 				return
 			end
-			return v133.v, v133.field
+			return value4.v, value4.field
 		end,
 		DefaultMask = function()
 			if not (not cfg.rbc.mask and not cfg.rbc.tool) then
@@ -60404,16 +60404,16 @@ do
 				avoidTable[startPosition + unit * (i * spacing)] = 15
 			end
 		end,
-		Priority = function(v131, targetPollen)
-			if not v131.Pollen and not v131.Field then
+		Priority = function(arg, targetPollen)
+			if not arg.Pollen and not arg.Field then
 				return 100
 			end
 
-			if v131.Pollen ~= targetPollen then
-				local text = v131.Text.Text
+			if arg.Pollen ~= targetPollen then
+				local text = arg.Text.Text
 
 				if not findMatch(rbc[string.lower(targetPollen)], text) then
-					if v131.Pollen == "White" or findMatch(rbc.white, v131.Text.Text) then
+					if arg.Pollen == "White" or findMatch(rbc.white, arg.Text.Text) then
 						return 2
 					end
 					return 10
@@ -60434,34 +60434,34 @@ do
 		end
 
 		if cfg.rbc.materialsenabled then
-			local v132 = 0
+			local num = 0
 
 			if cfg.rbc.materials then
 				for _, material in pairs(cfg.rbc.materials) do
 					if material[1] then
-						v132 += 1
+						num += 1
 					end
 				end
 			end
 
-			if v132 == 0 then
+			if num == 0 then
 				controls["Auto Use Materials"].Set(false)
 				ui.Notify("Auto Use Materials", "No materials selected")
 			end
 		end
 
 		if cfg.rbc.upgradesenabled then
-			local v132 = 0
+			local num = 0
 
 			if cfg.rbc.upgrades then
 				for _, upgrade in pairs(cfg.rbc.upgrades) do
 					if upgrade[1] then
-						v132 += 1
+						num += 1
 					end
 				end
 			end
 
-			if v132 == 0 then
+			if num == 0 then
 				controls["Auto Buy Upgrades"].Set(false)
 				ui.Notify("Auto Buy Upgrades", "No upgrades selected")
 			end
@@ -60474,7 +60474,7 @@ do
 			local beeSelectScreen = box.BeeSelectScreen
 			local upgradeSelectScreen = box.UpgradeSelectScreen
 			local visible = box.EndScreen.Visible
-			local v132 = 25
+			local num = 25
 
 			while rbc.frame.Visible do
 				if not RunService.Heartbeat:Wait() then
@@ -60483,7 +60483,7 @@ do
 
 				if questSelectScreen.Visible then
 					local questButtons = {}
-					local v134 = nil
+					local value4 = nil
 
 					for _, child in ipairs(questSelectScreen.ButtonFrame:GetChildren()) do
 						if string.find(child.Name, "Button") then
@@ -60576,24 +60576,24 @@ do
 						end
 
 						if not (not (scoreA < -14) or not (scoreB < -14)) then
-							v134 = true
+							value4 = true
 						end
 
 						return scoreA > scoreB or scoreA == scoreB and buttonA.reward > buttonB.reward
 					end)
 
-					if not v134 and not (not cfg.rbc.rerollquests or not (cfg.rbc.rerollmin <= tonumber(string.match(rbc.challenge.MainFrame.RoundLabel.Text, "%d+")))) then
-						v134 = true
+					if not value4 and not (not cfg.rbc.rerollquests or not (cfg.rbc.rerollmin <= tonumber(string.match(rbc.challenge.MainFrame.RoundLabel.Text, "%d+")))) then
+						value4 = true
 
 						for _, task_ in ipairs(questButtons[1].tasks) do
 							if not (not findMatch(rbc[string.lower(cfg.rbc.preset)], task_) and not findMatch(rbc[string.lower(cfg.rbc.preset) .. "pollen"], task_) and not findMatch(rbc.white, task_) and not findMatch(rbc.whitepollen, task_) and not (not findMatch(rbc.all, task_) and not (not string.find(task_, "Make") and not string.find(task_, "Collect") or not string.find(task_, "Goo")) or not findMatch(rbc.all, task_) and not (not string.find(task_, "Make") and not string.find(task_, "Collect") or not string.find(task_, "Honey") and not string.find(task_, "Pollen")))) then
-								v134 = nil
+								value4 = nil
 								break
 							end
 						end
 					end
 
-					if not (not v134 or not box.RerollButton.Visible or box.RerollButton.BackgroundTransparency ~= 0) then
+					if not (not value4 or not box.RerollButton.Visible or box.RerollButton.BackgroundTransparency ~= 0) then
 						if rbc.reroll then
 							local reroll = rbc.reroll
 							local elapsed = os.clock() - reroll
@@ -60639,7 +60639,7 @@ do
 				local attempts = 0
 
 				while not (not (attempts < 5) or not beeSelectScreen.Visible) do
-					local v134 = nil
+					local value4 = nil
 					attempts += 1
 
 					for _, child in ipairs(beeSelectScreen.ButtonFrame:GetChildren()) do
@@ -60648,15 +60648,15 @@ do
 							local beeLevel = tonumber(string.match(text, "%d+")) or 1
 							local isGifted = string.find(text, "★", 1, true) ~= nil
 							local beeName = string.gsub(string.gsub(string.gsub(text, "★ ", ""), " %(Lvl %d+%)", ""), " Bee", "")
-							local v138 = rbc[string.lower(cfg.rbc.preset) .. "bees"][beeName]
+							local value5 = rbc[string.lower(cfg.rbc.preset) .. "bees"][beeName]
 							local hasBeequip = string.find(child.Text2.Text, "Beequip: None") == nil
 							local hasMutation = string.find(child.Text2.Text, "Mutation: None") == nil
 
-							if not v134 or not (not v138 or not (v138 < v134.priority) and (v138 ~= v134.priority or not (not v134.gifted and isGifted or not v134.beequip and hasMutation or not v134.mutated and not v134.beequip and hasBeequip or not v134.mutated and not v134.beequip and not (v134.gifted ~= isGifted or not (v134.lvl < beeLevel))))) then
-								v134 = {
+							if not value4 or not (not value5 or not (value5 < value4.priority) and (value5 ~= value4.priority or not (not value4.gifted and isGifted or not value4.beequip and hasMutation or not value4.mutated and not value4.beequip and hasBeequip or not value4.mutated and not value4.beequip and not (value4.gifted ~= isGifted or not (value4.lvl < beeLevel))))) then
+								value4 = {
 									button = child,
 									index = tonumber(string.match(child.Name, "%d+")) or 1,
-									priority = v138 or 51,
+									priority = value5 or 51,
 									beequip = hasMutation,
 									mutated = hasBeequip,
 									gifted = isGifted,
@@ -60722,7 +60722,7 @@ do
 					local text = rbc.frame.MainFrame.ActiveBeesTxt.Text
 					local now = os.clock()
 					rbc.beeselect = now
-					gameApi:Event("RoboBearBeeSelect", v134 and v134.index or 1)
+					gameApi:Event("RoboBearBeeSelect", value4 and value4.index or 1)
 
 					while not (text ~= rbc.frame.MainFrame.ActiveBeesTxt.Text or not (os.clock() - now < 2)) do
 						RunService.Heartbeat:Wait()
@@ -60833,7 +60833,7 @@ do
 					rbc.starttime = now
 
 					if visible then
-						v132 = tonumber(string.match(box.EndScreen.InfoLbl.Text, "Rounds Completed: (%d+)")) or 25
+						num = tonumber(string.match(box.EndScreen.InfoLbl.Text, "Rounds Completed: (%d+)")) or 25
 
 						if rbc.disableroundend then
 							controls["Auto RBC"].Set(false)
@@ -60863,7 +60863,7 @@ do
 				while (not rbc.challenge.Visible or rbc.challenge.Position.X.Scale > 0.9) and os.clock() - now < 2 do
 					RunService.Heartbeat:Wait()
 				end
-			elseif v132 > 4 then
+			elseif num > 4 then
 				while not rewardsPopUp.Visible and os.clock() - now < 2 do
 					RunService.Heartbeat:Wait()
 				end
@@ -61025,7 +61025,7 @@ do
 						exitTo2 = 1
 						break
 					else
-						local v140 = nil
+						local value4 = nil
 						local needGumdrops = nil
 						local hasPollenQuest = nil
 
@@ -61071,7 +61071,7 @@ do
 								for _, pollenTask in ipairs(pollenTasks) do
 									if not string.find(pollenTask.Text.Text, "Complete") then
 										if not (not pollenTask.Field and not pollenTask.Pollen) then
-											v140 = { Field = pollenTask.Field, Pollen = pollenTask.Pollen }
+											value4 = { Field = pollenTask.Field, Pollen = pollenTask.Pollen }
 										end
 
 										hasPollenQuest = true
@@ -61079,7 +61079,7 @@ do
 									end
 								end
 
-								if not v140 and cfg.rbc.preset == "Red" or not (not v140 or v140.Pollen ~= "Red") then
+								if not value4 and cfg.rbc.preset == "Red" or not (not value4 or value4.Pollen ~= "Red") then
 									local homepageMatched = nil
 
 									if cfg.rbc.homepage then
@@ -61089,7 +61089,7 @@ do
 
 												if not (not string.find(text, "Homepage") or not (cfg.rbc.homepagemin <= tonumber(string.match(text, "%d+")))) then
 													homepageMatched = true
-													v140 = { Field = "Mushroom Field", Pollen = "Red" }
+													value4 = { Field = "Mushroom Field", Pollen = "Red" }
 												end
 
 												break
@@ -61098,9 +61098,9 @@ do
 									end
 
 									if not homepageMatched then
-										v140 = { Field = cfg.rbc.bestredfield, Pollen = "Red" }
+										value4 = { Field = cfg.rbc.bestredfield, Pollen = "Red" }
 									end
-								elseif not v140 and cfg.rbc.preset == "Blue" or not (not v140 or v140.Pollen ~= "Blue") then
+								elseif not value4 and cfg.rbc.preset == "Blue" or not (not value4 or value4.Pollen ~= "Blue") then
 									local homepageMatched = nil
 
 									if cfg.rbc.homepage then
@@ -61110,7 +61110,7 @@ do
 
 												if not (not string.find(text, "Homepage") or not (cfg.rbc.homepagemin <= tonumber(string.match(text, "%d+")))) then
 													homepageMatched = true
-													v140 = { Field = "Blue Flower Field", Pollen = "Blue" }
+													value4 = { Field = "Blue Flower Field", Pollen = "Blue" }
 												end
 
 												break
@@ -61123,9 +61123,9 @@ do
 											cfg.rbc.bestbluefield = "Pine Tree Forest"
 										end
 
-										v140 = { Field = cfg.rbc.bestbluefield, Pollen = "Blue" }
+										value4 = { Field = cfg.rbc.bestbluefield, Pollen = "Blue" }
 									end
-								elseif not v140 and cfg.rbc.preset == "White" or not (not v140 or v140.Pollen ~= "White") then
+								elseif not value4 and cfg.rbc.preset == "White" or not (not value4 or value4.Pollen ~= "White") then
 									local homepageMatched = nil
 
 									if cfg.rbc.homepage then
@@ -61135,7 +61135,7 @@ do
 
 												if not (not string.find(text, "Homepage") or not (cfg.rbc.homepagemin <= tonumber(string.match(text, "%d+")))) then
 													homepageMatched = true
-													v140 = { Field = "Dandelion Field", Pollen = "White" }
+													value4 = { Field = "Dandelion Field", Pollen = "White" }
 												end
 
 												break
@@ -61148,12 +61148,12 @@ do
 											cfg.rbc.bestwhitefield = "Spider Field"
 										end
 
-										v140 = { Field = cfg.rbc.bestwhitefield, Pollen = "White" }
+										value4 = { Field = cfg.rbc.bestwhitefield, Pollen = "White" }
 									end
 								end
 
 								if not (not cfg.rbc.mask and not cfg.rbc.tool) then
-									local pollen = v140.Pollen and string.lower(v140.Pollen) or v140.Field == "Mountain Top Field" and (cfg.rbc.preset == "Red" or cfg.rbc.preset == "Blue") and string.lower(cfg.rbc.preset) or findMatch(rbc.red, v140.Field) and "red" or findMatch(rbc.blue, v140.Field) and "blue" or findMatch(rbc.white, v140.Field) and "white"
+									local pollen = value4.Pollen and string.lower(value4.Pollen) or value4.Field == "Mountain Top Field" and (cfg.rbc.preset == "Red" or cfg.rbc.preset == "Blue") and string.lower(cfg.rbc.preset) or findMatch(rbc.red, value4.Field) and "red" or findMatch(rbc.blue, value4.Field) and "blue" or findMatch(rbc.white, value4.Field) and "white"
 
 									if not (not pollen or not cfg.rbc.mask) then
 										if not localPlayer.Character:FindFirstChild(cfg.rbc[pollen .. "mask"]) then
@@ -61176,17 +61176,17 @@ do
 
 								if cfg.rbc.goomethod == "Gumdrops" then
 									for _, gooTask in ipairs(gooTasks) do
-										if not string.find(gooTask.Text.Text, "Complete") and (not gooTask.Pollen and not gooTask.Field or not (gooTask.Field ~= v140.Field and (not gooTask.Pollen or gooTask.Pollen ~= v140.Pollen))) then
+										if not string.find(gooTask.Text.Text, "Complete") and (not gooTask.Pollen and not gooTask.Field or not (gooTask.Field ~= value4.Field and (not gooTask.Pollen or gooTask.Pollen ~= value4.Pollen))) then
 											needGumdrops = true
 										end
 									end
 								end
 
-								reportStatus(1, v140.Field)
-								setField(v140.Field)
+								reportStatus(1, value4.Field)
+								setField(value4.Field)
 								goToField()
 
-								if not (v140.Field ~= "Mountain Top Field" or not tracked.mondo) then
+								if not (value4.Field ~= "Mountain Top Field" or not tracked.mondo) then
 									killMondo(true, true)
 								end
 
@@ -61194,7 +61194,7 @@ do
 									getAggroMobs()
 								end
 
-								if not (not cfg.autofarm.autosprinkler or farmState.field == v140.Field) then
+								if not (not cfg.autofarm.autosprinkler or farmState.field == value4.Field) then
 									farmState:Handle()
 								end
 
@@ -61235,7 +61235,7 @@ do
 
 										if Body then
 											local field = getFieldAt(Body.Position)
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												mobFlags["Field Cogmowers"] = true
 												break
 											end
@@ -61247,7 +61247,7 @@ do
 
 										if Body then
 											local field = getFieldAt(Body.Position)
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												mobFlags["Field Mechsquitoes"] = true
 												break
 											end
@@ -61259,7 +61259,7 @@ do
 
 										if Body then
 											local field = getFieldAt(Body.Position)
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												mobFlags["Field Mega Mechsquitoes"] = true
 												break
 											end
@@ -61271,7 +61271,7 @@ do
 
 										if Body then
 											local field = getFieldAt(Body.Position)
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												mobFlags.Cogturrets = true
 												break
 											end
@@ -61304,7 +61304,7 @@ do
 										if Body then
 											local field = getFieldAt(Body.Position)
 
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												avoidMap[Body.Position] = 15
 												position2 = position2 or Body.Position
 											end
@@ -61317,7 +61317,7 @@ do
 										if Body then
 											local field = getFieldAt(Body.Position)
 
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												avoidMap[Body.Position] = 20
 												position2 = position2 or Body.Position
 											end
@@ -61330,7 +61330,7 @@ do
 										if Body then
 											local field = getFieldAt(Body.Position)
 
-											if not (not field or field.Name ~= v140.Field) then
+											if not (not field or field.Name ~= value4.Field) then
 												avoidMap[Body.Position] = 20
 												position2 = position2 or Body.Position
 											end
@@ -61343,7 +61343,7 @@ do
 												if k2.Alive then
 													local field = getFieldAt(k2.Pos)
 
-													if not (not field or field.Name ~= v140.Field) then
+													if not (not field or field.Name ~= value4.Field) then
 														avoidMap[k2.Pos] = 20
 														position2 = position2 or k2.Pos
 
@@ -61411,7 +61411,7 @@ do
 
 				if ok2 then
 					if not mobCooldown(monsterSpawners.CoconutCrab) then
-						v127()
+						value()
 					end
 				end
 			end
@@ -61438,7 +61438,7 @@ do
 					end
 				else
 					if not (not interrupt and not intwhitelist.Combat) then
-						v128()
+						value2()
 					end
 
 					if not (not cfg.planters.enabled or not interrupt and not intwhitelist.Planters) then
@@ -61937,16 +61937,16 @@ do
 			},
 		},
 		HatchEgg = function()
-			local honeycomb, v135
+			local honeycomb, value4
 
 			for k in pairs(honeycomb) do
-				v135 = nil
+				value4 = nil
 				break
 			end
 
 			local eggType, progression
 
-			if not v135 then
+			if not value4 then
 				local emptyCell
 
 				for i = 1, 10 do
@@ -62675,23 +62675,23 @@ do
 		end,
 	}
 
-	local function v134()
+	local function fn()
 		if cfg.beesmas.roboparty then
 			doRoboParty()
 		end
 
 		if cfg.autofarm.farmmeteorshowers then
-			local object, v136 = findMeteor(true)
+			local object, value4 = findMeteor(true)
 			local now = os.clock()
 
 			while not (not object or not (os.clock() - now < 180)) do
 				if not RunService.Heartbeat:Wait() then
 					break
 				end
-				logger.log("Meteor Shower: Found in", v136.Name)
+				logger.log("Meteor Shower: Found in", value4.Name)
 				local now2 = os.clock()
-				reportStatus(1, v136.Name)
-				setField(v136.Name)
+				reportStatus(1, value4.Name)
+				setField(value4.Name)
 				goToField()
 
 				while os.clock() - now2 < 10 do
@@ -62718,7 +62718,7 @@ do
 					object = findMeteor()
 				end
 
-				object, v136 = findMeteor(true)
+				object, value4 = findMeteor(true)
 			end
 		end
 
@@ -62757,7 +62757,7 @@ do
 				end
 			else
 				if not (not interrupt and not intwhitelist.Combat) then
-					v128()
+					value2()
 				end
 
 				if not (not toys.enabled or not toys.prog) then
@@ -62796,7 +62796,7 @@ do
 
 			if not cfg.misc.follow or cfg.misc.follow == "None" then
 				if cfg.misc.farmmultiplefields then
-					local v136 = nil
+					local value4 = nil
 
 					if not state.field1start then
 						state.field1start = os.clock()
@@ -62806,10 +62806,10 @@ do
 
 					if os.clock() - field1start < autofarm.fieldinterval * 60 then
 						setField(autofarm.field1)
-						v136 = true
+						value4 = true
 					end
 
-					if not v136 and autofarm.field2 ~= "None" then
+					if not value4 and autofarm.field2 ~= "None" then
 						if not state.field2start then
 							state.field2start = os.clock()
 						end
@@ -62818,11 +62818,11 @@ do
 
 						if os.clock() - field2start < autofarm.fieldinterval * 60 then
 							setField(autofarm.field2)
-							v136 = true
+							value4 = true
 						end
 					end
 
-					if not v136 and autofarm.field3 ~= "None" then
+					if not value4 and autofarm.field3 ~= "None" then
 						if not state.field3start then
 							state.field3start = os.clock()
 						end
@@ -62847,11 +62847,11 @@ do
 						local time = badge.time
 
 						if os.clock() - time > 3 then
-							local v136 = secureCall(gameApi.Badges.GetSetData, badge.name, gameApi:Cache())
+							local value4 = secureCall(gameApi.Badges.GetSetData, badge.name, gameApi:Cache())
 
-							if not v136 or not (v136.PercentProgress < 1) then
+							if not value4 or not (value4.PercentProgress < 1) then
 								badge = nil
-							elseif (v136.LastTier or 0) ~= badge.Tier then
+							elseif (value4.LastTier or 0) ~= badge.Tier then
 								badge = nil
 							else
 								badge.time = os.clock()
@@ -62860,71 +62860,71 @@ do
 					end
 
 					if not badge then
-						local v136 = nil
-						local v137 = gameApi:Cache()
+						local value4 = nil
+						local value5 = gameApi:Cache()
 
 						for k in pairs(availableFields) do
 							if not autofarm.badgebl or not autofarm.badgebl[k] then
-								local v138 = string.gsub(string.gsub(string.gsub(k, " Field", ""), " Patch", ""), " Forest", "")
-								local v139 = secureCall(gameApi.Badges.GetSetData, v138, v137)
+								local value6 = string.gsub(string.gsub(string.gsub(k, " Field", ""), " Patch", ""), " Forest", "")
+								local value7 = secureCall(gameApi.Badges.GetSetData, value6, value5)
 
-								if not (not v139 or not (v139.PercentProgress < 1)) then
-									local v140, lastTier
+								if not (not value7 or not (value7.PercentProgress < 1)) then
+									local value8, lastTier
 
-									if v136 then
+									if value4 then
 										if autofarm.badgep == "Highest Level" then
-											if v136.Tier < (v139.LastTier or 0) then
-												v140 = {}
-												lastTier = v139.LastTier or 0
-												v140.Tier = lastTier
-												v140.Current = v139.CurrentAmount
-												v140.Goal = v139.GoalAmount
-												v140.field = k
-												v140.name = v138
-												v136 = v140
+											if value4.Tier < (value7.LastTier or 0) then
+												value8 = {}
+												lastTier = value7.LastTier or 0
+												value8.Tier = lastTier
+												value8.Current = value7.CurrentAmount
+												value8.Goal = value7.GoalAmount
+												value8.field = k
+												value8.name = value6
+												value4 = value8
 												continue
 											end
 										end
 
 										if autofarm.badgep == "Lowest Level" then
-											if (v139.LastTier or 0) < v136.Tier then
-												v140 = {}
-												lastTier = v139.LastTier or 0
-												v140.Tier = lastTier
-												v140.Current = v139.CurrentAmount
-												v140.Goal = v139.GoalAmount
-												v140.field = k
-												v140.name = v138
-												v136 = v140
+											if (value7.LastTier or 0) < value4.Tier then
+												value8 = {}
+												lastTier = value7.LastTier or 0
+												value8.Tier = lastTier
+												value8.Current = value7.CurrentAmount
+												value8.Goal = value7.GoalAmount
+												value8.field = k
+												value8.name = value6
+												value4 = value8
 												continue
 											end
 										end
 
-										if autofarm.badgep ~= "Lowest Pollen Needed" or not (v139.GoalAmount - v139.CurrentAmount < v136.Goal - v136.Current) then
+										if autofarm.badgep ~= "Lowest Pollen Needed" or not (value7.GoalAmount - value7.CurrentAmount < value4.Goal - value4.Current) then
 											continue
 										end
 									end
 
-									v140 = {}
-									lastTier = v139.LastTier or 0
-									v140.Tier = lastTier
-									v140.Current = v139.CurrentAmount
-									v140.Goal = v139.GoalAmount
-									v140.field = k
-									v140.name = v138
-									v136 = v140
+									value8 = {}
+									lastTier = value7.LastTier or 0
+									value8.Tier = lastTier
+									value8.Current = value7.CurrentAmount
+									value8.Goal = value7.GoalAmount
+									value8.field = k
+									value8.name = value6
+									value4 = value8
 								end
 							end
 						end
 
-						if not v136 then
+						if not value4 then
 							controls["Farm Badges"].Set(false)
 							ui.Notify("Farm Badges", "No badges found")
 						else
-							logger.log("Farming badge in", v136.field)
-							setField(v136.field)
-							v136.time = os.clock()
-							state.badge = v136
+							logger.log("Farming badge in", value4.field)
+							setField(value4.field)
+							value4.time = os.clock()
+							state.badge = value4
 						end
 					else
 						setField(badge.field)
@@ -62941,15 +62941,15 @@ do
 
 					if ok then
 						toyUse.time.Badges = os.clock()
-						local v136 = gameApi:Cache()
-						local v137 = secureCall(gameApi.Badges.GetSets)
+						local value4 = gameApi:Cache()
+						local value5 = secureCall(gameApi.Badges.GetSets)
 
-						if v137 then
-							for k in pairs(v137) do
-								local v138 = secureCall(gameApi.Badges.GetSetData, k, v136)
+						if value5 then
+							for k in pairs(value5) do
+								local value6 = secureCall(gameApi.Badges.GetSetData, k, value4)
 
-								if not (not v138 or not v138.NextTier or v138.PercentProgress ~= 1) then
-									logger.log("Claiming", v138.TierName)
+								if not (not value6 or not value6.NextTier or value6.PercentProgress ~= 1) then
+									logger.log("Claiming", value6.TierName)
 									gameApi:Event("BadgeEvent", "Collect", k)
 									task.wait(0.5)
 								end
@@ -62959,10 +62959,10 @@ do
 				end
 
 				if not (not cfg.planters.enabled or cfg.planters.method ~= "Nectar" or not cfg.planters.nectar.farmfield) then
-					local v136, v137, v138
+					local value4, value5, value6
 
-					for _, v139 in v136, v137, v138 do
-						setField(v139.field)
+					for _, val in value4, value5, value6 do
+						setField(val.field)
 						break
 					end
 				end
@@ -62976,7 +62976,7 @@ do
 				end
 
 				if cfg.autoquest.enabled then
-					v129(options)
+					value3(options)
 				end
 
 				if not (not cfg.beesmas.gummybeacon or not tracked.gummybeacon or not (not cfg.beesmas.gummybeacon3 or not cfg.beesmas.gummybeacon3[tracked.gummybeacon])) then
@@ -62987,19 +62987,19 @@ do
 					if autofarm.autoguidingstar then
 						local exitTo = nil
 						local guidingKey = nil
-						local v136, v137
+						local value4, value5
 
-						for k, v138 in pairs(tracked.guiding) do
-							v136 = v138 ~= true
-							v137 = not v136 and getFieldAt(k.Position)
+						for k, val in pairs(tracked.guiding) do
+							value4 = val ~= true
+							value5 = not value4 and getFieldAt(k.Position)
 
-							if (not v136 or not availableFields[k]) and not (not v136 and not (not v137 or not availableFields[v137.Name])) or (not v136 or k == "Coconut Field") and not (not v136 and v137.Name ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) then
+							if (not value4 or not availableFields[k]) and not (not value4 and not (not value5 or not availableFields[value5.Name])) or (not value4 or k == "Coconut Field") and not (not value4 and value5.Name ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) then
 								tracked.guiding[k] = nil
 							elseif not autofarm.guidingfieldblacklist then
 								exitTo = 1
 								guidingKey = k
 								break
-							elseif not autofarm.guidingfieldblacklist[v136 and k or v137.Name] then
+							elseif not autofarm.guidingfieldblacklist[value4 and k or value5.Name] then
 								exitTo = 1
 								guidingKey = k
 								break
@@ -63009,7 +63009,7 @@ do
 						end
 
 						if exitTo == 1 then
-							setField(v136 and guidingKey or v137.Name)
+							setField(value4 and guidingKey or value5.Name)
 						end
 					end
 
@@ -63018,10 +63018,10 @@ do
 					end
 				end
 			else
-				local v136 = workspace:FindFirstChild(cfg.misc.follow)
+				local value4 = workspace:FindFirstChild(cfg.misc.follow)
 
-				if v136 then
-					local field = getFieldAt(v136.HumanoidRootPart.Position)
+				if value4 then
+					local field = getFieldAt(value4.HumanoidRootPart.Position)
 
 					if not (not field or not (field ~= state.followfield and not (not availableFields[field.Name] or not (not cfg.misc.followfieldblacklist or not cfg.misc.followfieldblacklist[field.Name])))) then
 						state.followfield = field
@@ -63033,7 +63033,7 @@ do
 				end
 
 				if cfg.autoquest.enabled then
-					v129(options)
+					value3(options)
 				end
 			end
 
@@ -63055,20 +63055,20 @@ do
 				if ok2 then
 					if state.combococonut then
 						if not state.combofield then
-							local v136 = nil
+							local value4 = nil
 
 							for k in pairs(availableFields) do
 								if k ~= currentFieldName then
 									local distance = distanceTo(workspace.FlowerZones[k].Position, true)
 
-									if not v136 or distance < v136.d then
-										v136 = { d = distance, v = k }
+									if not value4 or distance < value4.d then
+										value4 = { d = distance, v = k }
 									end
 								end
 							end
 
-							if v136 then
-								state.combofield = v136.v
+							if value4 then
+								state.combofield = value4.v
 							end
 						end
 
@@ -63153,8 +63153,8 @@ do
 						local farmposition = autofarm.farmposition
 						local x = vector.X
 						local z = vector.Z
-						local v136 = x > z
-						local origin = farmposition == "Left" and v136
+						local value4 = x > z
+						local origin = farmposition == "Left" and value4
 
 						if origin then
 							local z2 = position.Z
@@ -63162,16 +63162,16 @@ do
 						end
 
 						if not origin then
-							origin = farmposition == "Left" and not v136
+							origin = farmposition == "Left" and not value4
 
 							if origin then
-								local v137 = position.Z - z / 2
-								origin = Vector3.new(position.X, getRootPart().Position.Y, v137)
+								local value5 = position.Z - z / 2
+								origin = Vector3.new(position.X, getRootPart().Position.Y, value5)
 							end
 						end
 
 						if not origin then
-							origin = farmposition == "Right" and v136
+							origin = farmposition == "Right" and value4
 
 							if origin then
 								local z2 = position.Z
@@ -63180,11 +63180,11 @@ do
 						end
 
 						if not origin then
-							origin = farmposition == "Right" and not v136
+							origin = farmposition == "Right" and not value4
 
 							if origin then
-								local v137 = position.Z + z / 2
-								origin = Vector3.new(position.X, getRootPart().Position.Y, v137)
+								local value5 = position.Z + z / 2
+								origin = Vector3.new(position.X, getRootPart().Position.Y, value5)
 							end
 						end
 
@@ -63201,13 +63201,13 @@ do
 					walkPattern()
 				end
 			else
-				local v136 = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
+				local list = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
 
-				for k, v137 in pairs(tracked.avoid) do
-					v136[k] = v137
+				for k, val in pairs(tracked.avoid) do
+					list[k] = val
 				end
 
-				farmStep({ avoid = v136, skipoverlap = true })
+				farmStep({ avoid = list, skipoverlap = true })
 			end
 		elseif shouldConvert() then
 			convertHoney()
@@ -63232,8 +63232,8 @@ do
 					end
 
 					closePopups()
-					v127()
-					v134()
+					value()
+					fn()
 				end)
 
 				if not n and O ~= "return" and not string.find(O, "invalid key to 'next'", 1, true) then
@@ -63563,7 +63563,7 @@ do
 			local function decoyLoop()
 				local startIndex = 1
 				local entryCount = readUint32()
-				local decodedTable, v134, v135, v136, v137, v138, v139
+				local decodedTable, value, value2, value3, value4, value5, value6
 
 				if not (1 <= 0) then
 					if startIndex <= entryCount then
@@ -63571,20 +63571,20 @@ do
 							decodedTable = {}
 
 							for i = 0, 255 do
-								v134 = bitCombine
-								decodedTable[bitCombine(readUint32(), readUint32())] = v134(readUint32(), readUint32())
-								v135 = bitCombine
-								decodedTable[bitCombine(readUint32(), readUint32())] = v135(readUint32(), readUint32())
+								value = bitCombine
+								decodedTable[bitCombine(readUint32(), readUint32())] = value(readUint32(), readUint32())
+								value2 = bitCombine
+								decodedTable[bitCombine(readUint32(), readUint32())] = value2(readUint32(), readUint32())
 							end
 
 							for i = 1, readUint32() do
 								for i2 = 0, 255 do
-									v136 = readDouble() and readUint32()
-									v137 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
-									decodedTable[v136] = v137
-									v138 = readUint32()
-									v139 = readDouble() and readDouble()
-									decodedTable[v138] = v139
+									value3 = readDouble() and readUint32()
+									value4 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
+									decodedTable[value3] = value4
+									value5 = readUint32()
+									value6 = readDouble() and readDouble()
+									decodedTable[value5] = value6
 									decodedTable[extractBits(readDouble(), readUint32())] = { readDouble(), readUint32() }
 								end
 							end
@@ -63595,20 +63595,20 @@ do
 						decodedTable = {}
 
 						for i = 0, 255 do
-							v134 = bitCombine
-							decodedTable[bitCombine(readUint32(), readUint32())] = v134(readUint32(), readUint32())
-							v135 = bitCombine
-							decodedTable[bitCombine(readUint32(), readUint32())] = v135(readUint32(), readUint32())
+							value = bitCombine
+							decodedTable[bitCombine(readUint32(), readUint32())] = value(readUint32(), readUint32())
+							value2 = bitCombine
+							decodedTable[bitCombine(readUint32(), readUint32())] = value2(readUint32(), readUint32())
 						end
 
 						for i = 1, readUint32() do
 							for i2 = 0, 255 do
-								v136 = readDouble() and readUint32()
-								v137 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
-								decodedTable[v136] = v137
-								v138 = readUint32()
-								v139 = readDouble() and readDouble()
-								decodedTable[v138] = v139
+								value3 = readDouble() and readUint32()
+								value4 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
+								decodedTable[value3] = value4
+								value5 = readUint32()
+								value6 = readDouble() and readDouble()
+								decodedTable[value5] = value6
 								decodedTable[extractBits(readDouble(), readUint32())] = { readDouble(), readUint32() }
 							end
 						end
@@ -67409,7 +67409,7 @@ local function decoyMain()
 	local function decoyLoop()
 		local startIndex = 1
 		local entryCount = readUint32()
-		local decodedTable, v132, v133, v134, v135, v136, v137
+		local decodedTable, value, value2, value3, value4, value5, value6
 
 		if not (1 <= 0) then
 			if startIndex <= entryCount then
@@ -67417,20 +67417,20 @@ local function decoyMain()
 					decodedTable = {}
 
 					for i = 0, 255 do
-						v132 = bitCombine
-						decodedTable[bitCombine(readUint32(), readUint32())] = v132(readUint32(), readUint32())
-						v133 = bitCombine
-						decodedTable[bitCombine(readUint32(), readUint32())] = v133(readUint32(), readUint32())
+						value = bitCombine
+						decodedTable[bitCombine(readUint32(), readUint32())] = value(readUint32(), readUint32())
+						value2 = bitCombine
+						decodedTable[bitCombine(readUint32(), readUint32())] = value2(readUint32(), readUint32())
 					end
 
 					for i = 1, readUint32() do
 						for i2 = 0, 255 do
-							v134 = readDouble() and readUint32()
-							v135 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
-							decodedTable[v134] = v135
-							v136 = readUint32()
-							v137 = readDouble() and readDouble()
-							decodedTable[v136] = v137
+							value3 = readDouble() and readUint32()
+							value4 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
+							decodedTable[value3] = value4
+							value5 = readUint32()
+							value6 = readDouble() and readDouble()
+							decodedTable[value5] = value6
 							decodedTable[extractBits(readDouble(), readUint32())] = { readDouble(), readUint32() }
 						end
 					end
@@ -67441,20 +67441,20 @@ local function decoyMain()
 				decodedTable = {}
 
 				for i = 0, 255 do
-					v132 = bitCombine
-					decodedTable[bitCombine(readUint32(), readUint32())] = v132(readUint32(), readUint32())
-					v133 = bitCombine
-					decodedTable[bitCombine(readUint32(), readUint32())] = v133(readUint32(), readUint32())
+					value = bitCombine
+					decodedTable[bitCombine(readUint32(), readUint32())] = value(readUint32(), readUint32())
+					value2 = bitCombine
+					decodedTable[bitCombine(readUint32(), readUint32())] = value2(readUint32(), readUint32())
 				end
 
 				for i = 1, readUint32() do
 					for i2 = 0, 255 do
-						v134 = readDouble() and readUint32()
-						v135 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
-						decodedTable[v134] = v135
-						v136 = readUint32()
-						v137 = readDouble() and readDouble()
-						decodedTable[v136] = v137
+						value3 = readDouble() and readUint32()
+						value4 = decodedTable[readDouble()] or bitCombine(readDouble(), readDouble())
+						decodedTable[value3] = value4
+						value5 = readUint32()
+						value6 = readDouble() and readDouble()
+						decodedTable[value5] = value6
 						decodedTable[extractBits(readDouble(), readUint32())] = { readDouble(), readUint32() }
 					end
 				end
