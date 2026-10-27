@@ -1,0 +1,101 @@
+```diff
+Tab :- 📊 DASHBOARD
++ Live session stats — Coins, Gems, Rebirths, Earned, Hatched, Secrets
++ Job loop status pill + rolling activity log
++ Script overview & changelog
+```
+
+```diff
+Tab :- 🖐 FARM
++ Auto Click
++ Auto Break Chests
++ Tap On Best Island
++ Auto Rebirth (Best Unlocked / Best Affordable / per-slot)
++ Auto Buy — Skill Nodes, Upgrades, Double Jumps, Physical Upgrades
++ Auto Claim — Quests, Index Rewards, Gifts, Offline Rewards, Shiny Stars
++ Task Priority — 22 sliders to set the order of every job
+```
+
+```diff
+Tab :- 🐾 PETS
++ Auto Hatch (any egg, or Auto-pick)
++ Hide Hatch Animation
++ Auto Hold Secret Pop-Up
++ Auto Equip Best
++ Auto Delete — filter by Rarity, Tier, Mutation, or odds
++ Auto Farm Index
++ Farm Golden Mastery
++ Auto Equip Mastery Relic
++ Rare hatch log
+```
+
+```diff
+Tab :- ✨ WORKSHOP
++ Auto Craft — machine picker, Rainbow Pets, mutated pets
++ Craft When Storage Full
++ Auto Claim Fusion Egg
++ Auto Enchant — pick pet, slot, stop-on enchants, max roll price
++ Auto Use Boosts (optionally only while hatching)
++ Auto Use Pet Items
++ Auto Brew + Claim Potions
++ Auto Merge Potions
++ Auto Honey Pot
++ Auto Place Totems
+```
+
+```diff
+Tab :- 🎮 ACTIVITIES
++ Auto Pet Defense + Relic Offer picker
++ Auto Memory Match
++ Auto Dig
++ Auto Mine, Auto Sell, Auto Buy Pickaxes + Bags
++ Auto Buy Mining Daily Shop
++ Auto Fight Hallow Lord + Dodge Bombs
++ Auto Trick-or-Treat
++ Auto Accept Candy Witch Quests
++ Auto Use Blood Moon Dial
++ Only Hatch During Blood Moon
++ Auto Buy Halloween Shop
++ Auto Pop Balloons
++ Auto Kill Island Mobs
++ Auto Catch Lucky Ducky
++ Auto Shrine Blessing
+```
+
+```diff
+Tab :- 🗺 WORLD
++ Auto Unlock Islands + Zones
++ Save For Next Island
++ Manual island travel
++ Manual zone travel
+```
+
+```diff
+Tab :- 👁 VISUALS
++ ESP — pick what to show and how to draw it
++ Ultra FPS Boost
++ Disable 3D Rendering
++ Hide Popups
++ Auto Close Popups
+```
+
+```diff
+Tab :- 🔔 WEBHOOK
++ Discord webhook posts
++ Ping your user ID or @everyone
++ Hatch / Pet Defense / Kick notifications
++ Filter by Rarity, Tier, Egg or minimum odds
++ Send Test Post
+```
+
+```diff
+Tab :- ⚙️ SYSTEM
++ Custom WalkSpeed
++ Infinite Jump
++ Copy / Join Job ID, Rejoin, Server Hop
++ Anti AFK
++ Auto Execute on teleport
++ Auto Reconnect
++ Menu keybind, DPI scale, watermark toggle
++ Themes + save/load/autoload configs
+```
