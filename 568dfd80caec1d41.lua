@@ -482,7 +482,7 @@ end
 
 
 -- Forward declarations for the feature modules defined below.
-local PaintLink, FrameLink
+local PaintLink, FrameLink, ErrorLink
 local Game, Sched, Mover, Bg, Need, Brain, Watch, Lists, Auto
 local World, Arena, Memory, Dig, Mine, Hallow
 local Tap, Brk, Eggs, Rebirth, Shop, Claims, Pets, Craft, Enchant, Items, Events, Mobs
@@ -7429,8 +7429,14 @@ pcall(function()
     SaveManager:LoadAutoloadConfig()
 end)
 
+-- Tracked, and dropped in Cleanup. Untracked this outlived unload and every
+-- re-execute added another: one Roblox error would then fire a handler per
+-- generation, and with Auto Reconnect on that is one teleport attempt each.
 pcall(function()
-    game:GetService("GuiService").ErrorMessageChanged:Connect(function()
+    ErrorLink = game:GetService("GuiService").ErrorMessageChanged:Connect(function()
+        if Library.Unloaded then
+            return
+        end
         task.spawn(function()
             Util.AsIdentity(2)
             pcall(Webhook.OnError)
@@ -7753,10 +7759,10 @@ PaintLink = RunService.PostSimulation:Connect(Paint)
 
 local function Cleanup()
     Watch.Stop()
-    for _, link in { PaintLink, FrameLink } do
+    for _, link in { PaintLink, FrameLink, ErrorLink } do
         pcall(link.Disconnect, link)
     end
-    PaintLink, FrameLink = nil, nil
+    PaintLink, FrameLink, ErrorLink = nil, nil, nil
     if AntiAfk.Connection then
         pcall(AntiAfk.Connection.Disconnect, AntiAfk.Connection)
         AntiAfk.Connection = nil
