@@ -81,28 +81,45 @@ do
         end,
     })
 end
-if type(Library.Thread) ~= "function" then
-    Library.Thread = function(_, fn)
-        return task.spawn(fn)
-    end
-end
-if type(Library.Connect) ~= "function" then
-    Library.Connect = function(_, signal, fn)
-        return signal:Connect(fn)
-    end
-end
+-- The hub inherited BigFroot-style notifications that carry Type = "success" /
+-- "warning"; Lumin takes Title/Description/Time instead. Normalise that here, in a
+-- helper the hub calls, and leave Library.Notify itself alone.
+--
+-- It used to be done by replacing Library.Notify with a wrapper, which is unsafe on
+-- two counts. The wrapper mutated the caller's table (data.Type = nil), so it also
+-- stripped fields from tables the library passed in and may reuse. Worse, every
+-- notification the library raises for itself went through it too: with
+-- NotifyOnError = true a failing notify is reported by calling notify again, which
+-- fails again, and that loop re-prefixes one error string forever -- the endless
+-- "LPH:3908: LPH:3908: ..." console flood.
+local Toast
 do
     local rawNotify = Library.Notify
-    if type(rawNotify) == "function" then
-        Library.Notify = function(self, data)
-            if type(data) == "table" then
-                if data.Time == nil then
-                    data.Time = 3
-                end
-                data.Type = nil
-            end
-            return rawNotify(self, data)
+    Toast = function(data)
+        if type(rawNotify) ~= "function" then
+            return
         end
+        if type(data) ~= "table" then
+            pcall(rawNotify, Library, data)
+            return
+        end
+        -- Copy, never mutate what the caller handed us.
+        local payload = {}
+        for key, value in pairs(data) do
+            payload[key] = value
+        end
+        payload.Time = payload.Time or 3
+        payload.Type = nil
+        if pcall(rawNotify, Library, payload) then
+            return
+        end
+        -- Last resort: the keys every build accepts. Still pcall'd, so a notify
+        -- that cannot be delivered stays silent instead of restarting the loop.
+        pcall(rawNotify, Library, {
+            Title = payload.Title,
+            Description = payload.Description,
+            Time = payload.Time,
+        })
     end
 end
 
@@ -447,6 +464,7 @@ end
 
 
 -- Forward declarations for the feature modules defined below.
+local PaintLink, FrameLink
 local Game, Sched, Mover, Bg, Need, Brain, Watch, Lists, Auto
 local World, Arena, Memory, Dig, Mine, Hallow
 local Tap, Brk, Eggs, Rebirth, Shop, Claims, Pets, Craft, Enchant, Items, Events, Mobs
@@ -922,7 +940,7 @@ function Session.QueueLoader(notify)
     end
     if record.Done then
         if notify then
-            Library:Notify({ Title = "Auto Execute", Description = "the hub will load again after a teleport", Type = "success" })
+            Toast({ Title = "Auto Execute", Description = "the hub will load again after a teleport", Type = "success" })
         end
         return true
     end
@@ -938,7 +956,7 @@ function Session.QueueLoader(notify)
     end
     if type(queuer) ~= "function" then
         if notify then
-            Library:Notify({ Title = "Auto Execute", Description = "this executor has no queue_on_teleport", Type = "warning" })
+            Toast({ Title = "Auto Execute", Description = "this executor has no queue_on_teleport", Type = "warning" })
         end
         return false
     end
@@ -946,7 +964,7 @@ function Session.QueueLoader(notify)
     if ok then
         record.Done = true
         if notify then
-            Library:Notify({ Title = "Auto Execute", Description = "the hub will load again after a teleport", Type = "success" })
+            Toast({ Title = "Auto Execute", Description = "the hub will load again after a teleport", Type = "success" })
         end
     end
     return ok
@@ -1017,16 +1035,16 @@ local Server = { JoinTarget = "" }
 
 function Server.Join()
     if Server.JoinTarget == "" then
-        Library:Notify({ Title = "Server", Description = "paste a Job ID first", Type = "warning" })
+        Toast({ Title = "Server", Description = "paste a Job ID first", Type = "warning" })
         return
     end
     if Server.JoinTarget == tostring(game.JobId) then
-        Library:Notify({ Title = "Server", Description = "you are already in that server", Type = "warning" })
+        Toast({ Title = "Server", Description = "you are already in that server", Type = "warning" })
         return
     end
     Session.QueueLoader(false)
     local ok, err = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, Server.JoinTarget, LocalPlayer)
-    Library:Notify({ Title = "Server", Description = ok and ("joining " .. Server.JoinTarget:sub(1, 8) .. "...") or ("teleport failed: " .. tostring(err)), Type = ok and "success" or "warning" })
+    Toast({ Title = "Server", Description = ok and ("joining " .. Server.JoinTarget:sub(1, 8) .. "...") or ("teleport failed: " .. tostring(err)), Type = ok and "success" or "warning" })
 end
 
 function Server.Rejoin()
@@ -1041,9 +1059,9 @@ end
 function Server.CopyJobId()
     local clip = rawget((type(getgenv) == "function" and getgenv()) or _G, "setclipboard") or (type(setclipboard) == "function" and setclipboard)
     if type(clip) == "function" and pcall(clip, tostring(game.JobId)) then
-        Library:Notify({ Title = "Server", Description = "Job ID copied", Type = "success" })
+        Toast({ Title = "Server", Description = "Job ID copied", Type = "success" })
     else
-        Library:Notify({ Title = "Server", Description = "this executor has no clipboard", Type = "warning" })
+        Toast({ Title = "Server", Description = "this executor has no clipboard", Type = "warning" })
     end
 end
 
@@ -1066,7 +1084,7 @@ function Server.HopRun()
         end
     end
     if not found then
-        Library:Notify({ Title = "Server", Description = "no other server found", Type = "warning" })
+        Toast({ Title = "Server", Description = "no other server found", Type = "warning" })
         return
     end
     Session.QueueLoader(false)
@@ -7356,8 +7374,10 @@ local Appearance = Library:BuildAppearanceSection(Tabs.System, {
 task.spawn(function()
     local frames, lastTick = 0, os.clock()
     local stats = game:GetService("Stats")
+    -- Tracked: an untracked counter keeps ticking after unload, and re-executing
+    -- the hub would leave one running per generation.
     pcall(function()
-        RunService.RenderStepped:Connect(function()
+        FrameLink = RunService.RenderStepped:Connect(function()
             frames += 1
         end)
     end)
@@ -7704,12 +7724,21 @@ local function Paint()
     stat(HomeStats.Hatched, "Hatched", View.StatHatched)
     stat(HomeStats.Secrets, "Secrets", View.StatSecrets)
 end
-Library:Connect(RunService.PostSimulation, Paint)
+-- Connect straight to the signal, the way the Lumin template does, rather than
+-- through Library:Connect: that method is not part of the documented surface, so
+-- its argument order is a guess, and a wrong guess here silently costs every
+-- dashboard update. Tracked so Cleanup can drop it; otherwise the loop outlives
+-- the window and each re-execute stacks another one.
+PaintLink = RunService.PostSimulation:Connect(Paint)
 
 --== Startup and cleanup ==--
 
 local function Cleanup()
     Watch.Stop()
+    for _, link in { PaintLink, FrameLink } do
+        pcall(link.Disconnect, link)
+    end
+    PaintLink, FrameLink = nil, nil
     if AntiAfk.Connection then
         pcall(AntiAfk.Connection.Disconnect, AntiAfk.Connection)
         AntiAfk.Connection = nil
@@ -7810,9 +7839,9 @@ local function Start()
     -- gated on Game.Ready, so without this a failure here is indistinguishable
     -- from "the menu opened and nothing happens".
     if Game.Ready then
-        Library:Notify({ Title = "Lumin Hub", Description = GameName .. " ready", Time = 4 })
+        Toast({ Title = "Lumin Hub", Description = GameName .. " ready", Time = 4 })
     else
-        Library:Notify({
+        Toast({
             Title = "Lumin Hub",
             Description = "Not ready: " .. State.Note .. "\nFeatures stay off until the game layer connects.",
             Time = 10,
@@ -7844,4 +7873,4 @@ end
 task.spawn(Start)
 
 -- Start() is still connecting the game layer at this point; it posts the result itself.
-Library:Notify({ Title = "Lumin Hub", Description = GameName .. " loading...", Time = 3 })
+Toast({ Title = "Lumin Hub", Description = GameName .. " loading...", Time = 3 })
