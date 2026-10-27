@@ -7806,6 +7806,18 @@ local function Start()
         Boost.PetsRun()
     end)
     Note(Game.Ready and "ready" or "game modules missing")
+    -- Say out loud whether the game layer actually connected. Every feature is
+    -- gated on Game.Ready, so without this a failure here is indistinguishable
+    -- from "the menu opened and nothing happens".
+    if Game.Ready then
+        Library:Notify({ Title = "Lumin Hub", Description = GameName .. " ready", Time = 4 })
+    else
+        Library:Notify({
+            Title = "Lumin Hub",
+            Description = "Not ready: " .. State.Note .. "\nFeatures stay off until the game layer connects.",
+            Time = 10,
+        })
+    end
     local env = (type(getgenv) == "function" and getgenv()) or _G
     env.__TAPSIM_DBG = {
         State = State, Game = Game, Data = Data, Net = Net, Char = Char, Tap = Tap, Brk = Brk, Eggs = Eggs,
@@ -7831,4 +7843,5 @@ end
 
 task.spawn(Start)
 
-Library:Notify({ Title = "Lumin Hub", Description = GameName .. " loaded", Type = "success" })
+-- Start() is still connecting the game layer at this point; it posts the result itself.
+Library:Notify({ Title = "Lumin Hub", Description = GameName .. " loading...", Time = 3 })
