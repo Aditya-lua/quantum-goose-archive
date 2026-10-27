@@ -347,11 +347,29 @@ function Util.Call(fn, ...)
     return table.unpack(packed, 2, packed.n)
 end
 
+-- Two shapes live in this game and they are not interchangeable.
+--
+-- Controllers are real methods: Controller:ClearAuto(), so they take the object.
+-- The Shared config modules are plain dot-functions: RebirthConfig.GetPrice(amount,
+-- rebirths, save) declares no self. Calling one of those through Util.Method shifts
+-- every argument along by one -- amount receives the module table, rebirths receives
+-- the amount -- so it errors, the pcall swallows it, and the caller reads nil. For a
+-- price that is Util.Num(nil, math.huge), which is why Auto Rebirth sat on
+-- "saving for slot 1: inf" while the game offered the same rebirth for 600.
+--
+-- Util.Method for controllers, Util.Fn for config modules.
 function Util.Method(obj, name, ...)
     if type(obj) ~= "table" or type(obj[name]) ~= "function" then
         return nil
     end
     return Util.Call(obj[name], obj, ...)
+end
+
+function Util.Fn(obj, name, ...)
+    if type(obj) ~= "table" or type(obj[name]) ~= "function" then
+        return nil
+    end
+    return Util.Call(obj[name], ...)
 end
 
 function Util.Timed(timeout, fn, ...)
@@ -725,7 +743,7 @@ function Char.Blocked()
         return "digging"
     end
     local flow = Game.Module("OnboardingFlow")
-    if flow and Util.Method(flow, "IsPending", Data.Save) == true then
+    if flow and Util.Fn(flow, "IsPending", Data.Save) == true then
         return "tutorial"
     end
     return ""
@@ -1325,12 +1343,12 @@ function Eggs.Price(name, count)
     local pricing = Game.Module("EggPricing")
     if pricing then
         if count and count > 1 then
-            local total = Util.Method(pricing, "GetTotal", Data.Save, name, entry.Price, count)
+            local total = Util.Fn(pricing, "GetTotal", Data.Save, name, entry.Price, count)
             if total then
                 return Util.Num(total, entry.Price * count)
             end
         end
-        local unit = Util.Method(pricing, "GetUnitPrice", Data.Save, name, entry.Price)
+        local unit = Util.Fn(pricing, "GetUnitPrice", Data.Save, name, entry.Price)
         if unit then
             return Util.Num(unit, entry.Price) * (count or 1)
         end
@@ -1413,8 +1431,8 @@ function Eggs.Slots()
     end
     local perks = Game.Module("GamepassPerks")
     local boosts = Game.Module("BoostFormula")
-    local octo = (perks and Util.Method(perks, "Has", Data.Save, "x8Egg") == true)
-        or (boosts and Util.Method(boosts, "HasType", Data.Save, "OctoHatch") == true)
+    local octo = (perks and Util.Fn(perks, "Has", Data.Save, "x8Egg") == true)
+        or (boosts and Util.Fn(boosts, "HasType", Data.Save, "OctoHatch") == true)
     local coins = Data.Coins()
     if octo and coins >= Eggs.Price(want, 8) then
         return 8
@@ -1642,7 +1660,7 @@ function Rebirth.Slots()
     local config = Game.Module("RebirthButtonConfig")
     local save = Data.Save
     local world = save and save.Progression and save.Progression.World or "Main"
-    local count = config and Util.Method(config, "GetOptionCount", save and save.Upgrades and save.Upgrades.RebirthButtons, world) or 1
+    local count = config and Util.Fn(config, "GetOptionCount", save and save.Upgrades and save.Upgrades.RebirthButtons, world) or 1
     return math.max(1, math.floor(Util.Num(count, 1)))
 end
 
@@ -1651,8 +1669,8 @@ function Rebirth.Price(slot)
     if not config then
         return math.huge, 0
     end
-    local amount = Util.Method(config, "GetAmountFromIndex", slot) or 5 ^ (slot - 1)
-    local price = Util.Method(config, "GetPrice", amount, Data.Rebirths(), Data.Save)
+    local amount = Util.Fn(config, "GetAmountFromIndex", slot) or 5 ^ (slot - 1)
+    local price = Util.Fn(config, "GetPrice", amount, Data.Rebirths(), Data.Save)
     return Util.Num(price, math.huge), Util.Num(amount, 0)
 end
 
@@ -1690,7 +1708,7 @@ end
 
 function Rebirth.Owns()
     local formula = Game.Module("SkillTreeFormula")
-    return formula ~= nil and Util.Method(formula, "HasAutoRebirth", Data.Save) == true
+    return formula ~= nil and Util.Fn(formula, "HasAutoRebirth", Data.Save) == true
 end
 
 function Rebirth.On()
@@ -1768,7 +1786,7 @@ function Shop.NextNode()
             local tree = node.Tree
             if tree == nil or tree == "Origin" or unlocked[tree] == true or formula.Nodes[tree] == nil then
                 if os.clock() >= (Shop.NodeRest[id] or 0) then
-                    local price = Util.Method(formula, "GetPrice", save, id)
+                    local price = Util.Fn(formula, "GetPrice", save, id)
                     if price and Util.Num(price, math.huge) < bestPrice then
                         best, bestPrice = id, Util.Num(price, math.huge)
                     end
@@ -1789,14 +1807,14 @@ function Shop.NextUpgrade()
     local zones = Data.Zones()
     local best, bestPrice = nil, math.huge
     for _, name in config.Order do
-        local entry = Util.Method(config, "Get", name)
+        local entry = Util.Fn(config, "Get", name)
         if type(entry) == "table" and entry.SkillTreeNode == nil then
             local level = Util.Num(levels[name], 0)
             local cap = entry.LaunchTotal or entry.Total
             if not cap or level < cap then
-                local zone = Util.Method(config, "GetRetainedRequirement", name, level)
+                local zone = Util.Fn(config, "GetRetainedRequirement", name, level)
                 if zone == nil or zone == "Spawn" or zones[zone] == true then
-                    local price = Util.Method(config, "GetPrice", name, level + 1)
+                    local price = Util.Fn(config, "GetPrice", name, level + 1)
                     if price and Util.Num(price, math.huge) < bestPrice then
                         best, bestPrice = name, Util.Num(price, math.huge)
                     end
@@ -1819,11 +1837,11 @@ function Shop.NextJump()
     if owned > max then
         return nil
     end
-    local zone = Util.Method(config, "GetRetainedRequirement", owned)
+    local zone = Util.Fn(config, "GetRetainedRequirement", owned)
     if zone ~= nil and zone ~= "Spawn" and Data.Zones()[zone] ~= true then
         return nil
     end
-    local price = Util.Method(config, "GetPrice", owned)
+    local price = Util.Fn(config, "GetPrice", owned)
     return price and world or nil, Util.Num(price, math.huge)
 end
 
@@ -1914,11 +1932,11 @@ function Shop.NextPad()
             Shop.Pads[model] = nil
         else
             local key = model:GetAttribute("UpgradeName")
-            local line = key and Util.Method(config, "Get", key)
+            local line = key and Util.Fn(config, "Get", key)
             if type(line) == "table" then
-                local index = Util.Num(Util.Method(config, "GetOwned", Data.Save, line), 0) + 1
-                if Util.Method(config, "GetLockedIsland", Data.Save, line, index) == nil then
-                    local price = Util.Num(Util.Method(config, "GetPrice", line, index), math.huge)
+                local index = Util.Num(Util.Fn(config, "GetOwned", Data.Save, line), 0) + 1
+                if Util.Fn(config, "GetLockedIsland", Data.Save, line, index) == nil then
+                    local price = Util.Num(Util.Fn(config, "GetPrice", line, index), math.huge)
                     if price <= gems and price < bestPrice then
                         best, bestIndex, bestPrice = model, index, price
                     end
@@ -2023,7 +2041,7 @@ function Claims.Index()
     if not catalog then
         return
     end
-    local claimables = Util.Method(catalog, "Claimables", Data.Save and Data.Save.Pets)
+    local claimables = Util.Fn(catalog, "Claimables", Data.Save and Data.Save.Pets)
     for _, entry in (type(claimables) == "table" and claimables or {}) do
         if entry.Kind == "Egg" and type(entry.Name) == "string" then
             if Net.Fire("PetIndexService", "RewardClaimRequested", entry.Name) then
@@ -2210,7 +2228,7 @@ function Claims.NpcWork()
     end
     if step == 0 then
         local config = Game.Module("NpcQuestConfig")
-        if config and Util.Method(config, "IsAvailable", save, "BouncyBall") == false then
+        if config and Util.Fn(config, "IsAvailable", save, "BouncyBall") == false then
             return nil
         end
         if not Claims.Boingo() then
@@ -2322,11 +2340,11 @@ function Pets.OneIn(name, tier, mutation)
     if not odds then
         return math.huge
     end
-    local base = Util.Method(odds, "OneIn", name)
+    local base = Util.Fn(odds, "OneIn", name)
     if not base then
         return math.huge
     end
-    local variant = Util.Method(odds, "Variant", base, tier, mutation)
+    local variant = Util.Fn(odds, "Variant", base, tier, mutation)
     return Util.Num(variant or base, math.huge)
 end
 
@@ -2429,7 +2447,7 @@ function Pets.IndexFound(name, tier)
         return false
     end
     local save = Data.Save
-    return Util.Method(catalog, "Discovered", save and save.Pets, name, tier) == true
+    return Util.Fn(catalog, "Discovered", save and save.Pets, name, tier) == true
 end
 
 function Pets.Hold(id, entry)
@@ -3018,20 +3036,20 @@ function Enchant.Due()
     local config = Game.Module("EnchantConfig")
     local spins = Game.Module("EnchantSpins")
     local save = Data.Save
-    local spinCount = spins and Util.Method(spins, "Count", save and save.Enchanting) or 0
+    local spinCount = spins and Util.Fn(spins, "Count", save and save.Enchanting) or 0
     local cheapest = math.huge
     for _, id in Enchant.Candidates() do
         local entry = Pets.Owned()[id]
         if entry then
             local slot = Util.Num(Library.Flags.EnchantSlot, 1)
-            if slot == 2 and config and Util.Num(Util.Method(config, "GetSlotCount", entry), 1) < 2 then
+            if slot == 2 and config and Util.Num(Util.Fn(config, "GetSlotCount", entry), 1) < 2 then
                 slot = 1
             end
             local current = slot == 2 and entry.Enchant2 or entry.Enchant
             if not (type(current) == "string" and wants[current]) then
-                local price = config and Util.Method(config, "GetRollPrice", entry)
+                local price = config and Util.Fn(config, "GetRollPrice", entry)
                 price = price and Util.Num(price, math.huge) or math.huge
-                local rolls = config and Util.Num(Util.Method(config, "GetRollCount", entry), 0) or 0
+                local rolls = config and Util.Num(Util.Fn(config, "GetRollCount", entry), 0) or 0
                 if price <= Enchant.Cap() or spinCount > 0 then
                     if Data.Gems() >= price or spinCount > 0 then
                         return { Id = id, Slot = slot, Name = entry.Name, Rolls = rolls, Wanted = wants }
@@ -3123,7 +3141,7 @@ function Enchant.OnEvent(info)
                 local growth = Util.Num(config.RollPriceGrowth, 1)
                 local nextPrice = base * growth ^ (Util.Num(work.Rolls, 0) + Util.Num(info.Rolls, 0))
                 local spins = Game.Module("EnchantSpins")
-                local hasSpin = spins and Util.Num(Util.Method(spins, "Count", Data.Save and Data.Save.Enchanting), 0) > 0
+                local hasSpin = spins and Util.Num(Util.Fn(spins, "Count", Data.Save and Data.Save.Enchanting), 0) > 0
                 if nextPrice > Enchant.Cap() and not hasSpin then
                     work.Capped = true
                     task.spawn(function()
@@ -3273,7 +3291,7 @@ function Items.PotionWork()
         local brew = Game.Module("PotionBrewConfig")
         local want = tostring(Library.Flags.BrewPick or "")
         if brew and want ~= "" then
-            local price = Util.Num(Util.Method(brew, "GetPrice", 1, Data.Rebirths()), math.huge)
+            local price = Util.Num(Util.Fn(brew, "GetPrice", 1, Data.Rebirths()), math.huge)
             for _, slot in slots do
                 if Util.Count(slot) == 0 then
                     table.insert(work.Brew, want)
@@ -3369,7 +3387,7 @@ function Items.HoneyWork()
             key = key or (config.ByKey[want] and want or nil)
         end
         if key then
-            local maxCraft = config and Util.Method(config, "MaxCraftable", Data.Save, key) or 0
+            local maxCraft = config and Util.Fn(config, "MaxCraftable", Data.Save, key) or 0
             local amount = math.min(Util.Num(maxCraft, 0), 100)
             if amount > 0 then
                 work.Craft = { Key = key, Amount = amount }
@@ -3544,7 +3562,7 @@ function Events.BalloonLoop()
                 if launchedAgo >= lifetime then
                     Events.Balloons[uid] = nil
                 elseif now - (lastHit[uid] or 0) >= math.max(hitCooldown + 0.02, 0.12) then
-                    local pos = flight and Util.Method(flight, "Position", balloon, launchedAgo) or balloon.Origin
+                    local pos = flight and Util.Fn(flight, "Position", balloon, launchedAgo) or balloon.Origin
                     if typeof(pos) == "Vector3" and (pos - root.Position).Magnitude <= hitRange - 5 then
                         local score = (order[balloon.Size] or 1) * 100 + launchedAgo
                         if score > bestScore then
@@ -3621,7 +3639,7 @@ function Mobs.Due()
     local best, bestScore = nil, -1
     for id, spot in config.Spots do
         if (not picks or picks[spot.Title]) and Data.Islands()[spot.Island] == true and os.clock() >= (Mobs.Rest[id] or 0) then
-            local readyAt = Util.Method(config, "GetReadyAt", Data.Save, id)
+            local readyAt = Util.Fn(config, "GetReadyAt", Data.Save, id)
             if readyAt == nil or Util.Num(readyAt, 0) <= now then
                 local center = spotsNode:GetAttribute(id)
                 if typeof(center) == "Vector3" then
@@ -3960,8 +3978,8 @@ function World.BridgeDue()
     if not config then
         return false
     end
-    return Util.Method(config, "BridgeFightUnlocked", save) == true
-        and Util.Method(config, "BridgeChallengeReady", save) == true
+    return Util.Fn(config, "BridgeFightUnlocked", save) == true
+        and Util.Fn(config, "BridgeChallengeReady", save) == true
 end
 
 function World.Bridge()
@@ -4347,7 +4365,7 @@ function Dig.Due()
     local config = Game.Module("DigConfig")
     local save = Data.Save
     if config and type(config.Allowance) == "function" then
-        local left, waitFor = Util.Method(config, "Allowance", save and save.Digging, Workspace:GetServerTimeNow())
+        local left, waitFor = Util.Fn(config, "Allowance", save and save.Digging, Workspace:GetServerTimeNow())
         if left ~= nil and Util.Num(left, 0) <= 0 then
             Dig.Until = os.clock() + math.max(30, Util.Num(waitFor, 30))
             return false
@@ -4670,7 +4688,7 @@ end
 
 function Mine.Rarity(live, x, y, z)
     local config = live.Mods.Config
-    local ore = Util.Method(config, "Ore", live.Seed, x, y, z)
+    local ore = Util.Fn(config, "Ore", live.Seed, x, y, z)
     if type(ore) ~= "table" then
         return nil
     end
@@ -4697,7 +4715,7 @@ function Mine.Target(live)
     for x = 0, size - 1 do
         for y = 0, height - 1 do
             for z = 0, depthSize - 1 do
-                local key = Util.Method(config, "Key", x, y, z)
+                local key = Util.Fn(config, "Key", x, y, z)
                 if not (live.Hooks.Removed and key and live.Hooks.Removed[key]) and os.clock() >= (Mine.Skip[key or ""] or 0) then
                     local ore = Mine.Rarity(live, x, y, z)
                     if ore then
@@ -4720,7 +4738,7 @@ end
 
 function Mine.PositionOf(live, cell)
     local config = live.Mods.Config
-    local pos = Util.Method(config, "Position", cell.X, cell.Y, cell.Z)
+    local pos = Util.Fn(config, "Position", cell.X, cell.Y, cell.Z)
     return typeof(pos) == "Vector3" and pos or nil
 end
 
@@ -4729,7 +4747,7 @@ function Mine.Stand(live, cell)
     local config = live.Mods.Config
     local removed = live.Hooks.Removed or {}
     local function open(x, y, z)
-        local key = Util.Method(config, "Key", x, y, z)
+        local key = Util.Fn(config, "Key", x, y, z)
         return key and removed[key] == true
     end
     local base = Mine.PositionOf(live, cell)
@@ -4763,7 +4781,7 @@ function Mine.CanHit(live, cell, eye)
     end
     local sight = live.Mods.Sight
     if sight and type(sight.CanSee) == "function" then
-        return Util.Method(sight, "CanSee", live.Hooks.Marker, live.Hooks.Removed, eye, cell.X, cell.Y, cell.Z) == true
+        return Util.Fn(sight, "CanSee", live.Hooks.Marker, live.Hooks.Removed, eye, cell.X, cell.Y, cell.Z) == true
     end
     return true
 end
@@ -4834,7 +4852,7 @@ end
 
 function Mine.Sell(live)
     local world = live.Mods.World
-    local pad = world and Util.Method(world, "Part", "Sell")
+    local pad = world and Util.Fn(world, "Part", "Sell")
     if pad and pad:IsA("BasePart") then
         Char.Hop(pad.Position + Vector3.new(0, 3, 0))
     end
@@ -4863,7 +4881,7 @@ function Mine.Gear(live)
         return
     end
     local world = live.Mods.World
-    local pad = world and Util.Method(world, "Part", "Shop")
+    local pad = world and Util.Fn(world, "Part", "Shop")
     if pad and pad:IsA("BasePart") then
         Char.Hop(pad.Position + Vector3.new(0, 3, 0))
         task.wait(0.3)
@@ -4930,8 +4948,8 @@ function Mine.Daily(live)
     if not shop then
         return
     end
-    local day = Util.Method(shop, "Day", Workspace:GetServerTimeNow())
-    local offers = Util.Method(shop, "Offers", day)
+    local day = Util.Fn(shop, "Day", Workspace:GetServerTimeNow())
+    local offers = Util.Fn(shop, "Offers", day)
     if type(offers) ~= "table" then
         return
     end
@@ -4944,7 +4962,7 @@ function Mine.Daily(live)
         return Util.Num(a.Price, 0) > Util.Num(b.Price, 0)
     end)
     local world = live.Mods.World
-    local pad = world and Util.Method(world, "Part", "Daily")
+    local pad = world and Util.Fn(world, "Part", "Daily")
     local mining = Data.Save and Data.Save.Mining
     local coins = mining and Util.Num(mining.Coins, 0) or 0
     local hopped = false
@@ -4954,7 +4972,7 @@ function Mine.Daily(live)
             local isTitle = offer.Title == true or offer.Kind == "Title"
             local ownedTitles = Data.Save and Data.Save.Titles and Data.Save.Titles.Owned or {}
             if not (isTitle and ownedTitles[name]) then
-                local left = Util.Method(shop, "Left", Data.Save, day, offer)
+                local left = Util.Fn(shop, "Left", Data.Save, day, offer)
                 local count = math.min(Util.Num(left, isTitle and 1 or 5), isTitle and 1 or 5)
                 local price = Util.Num(offer.Price, math.huge)
                 while count > 0 and coins >= price do
@@ -6822,7 +6840,7 @@ function Lists.Load()
     local catalog = Game.Module("ItemCatalog")
     Items.PetItems = {}
     if catalog then
-        local all = Util.Method(catalog, "GetAll")
+        local all = Util.Fn(catalog, "GetAll")
         if type(all) == "table" then
             for name in all do
                 if type(name) == "string" and (name:find("Treat", 1, true) or name:find("Fruit", 1, true)
@@ -6845,7 +6863,7 @@ function Lists.Load()
     Enchant.Names = {}
     if enchant and type(enchant.Enchants) == "table" then
         for name in enchant.Enchants do
-            if type(enchant.IsFilterable) ~= "function" or Util.Method(enchant, "IsFilterable", name) == true then
+            if type(enchant.IsFilterable) ~= "function" or Util.Fn(enchant, "IsFilterable", name) == true then
                 table.insert(Enchant.Names, name)
             end
         end
