@@ -31,6 +31,13 @@ local NOXEN = {
         FontColor = "EDE9F6", -- Frost
         FontFace = "Code",
     },
+    -- the window logo, used by every hub in place of its own icon
+    Logo = {
+        AssetId = nil, -- a Roblox Image ID (number) shows on every executor; while nil the PNG below is used
+        Url = "https://raw.githubusercontent.com/Aditya-lua/Noxen/refs/heads/main/noxen-icon.png",
+        -- executors keep the downloaded copy: give a changed PNG a new file name or they show the old one
+        File = "Noxen/assets/noxen-icon-1.png",
+    },
 }
 
 local function Fetch(Path)
@@ -909,6 +916,43 @@ local function CopyInvite(Invite)
     end
 end
 
+-- The logo as an icon Obsidian can draw, or nil: then the hub's own icon stays. The PNG route needs the
+-- executor's file functions; a download that is not a PNG (an error page) is never cached.
+local function LogoIcon()
+    local Logo = NOXEN.Logo
+    if type(Logo.AssetId) == "number" then
+        return "rbxassetid://" .. tostring(Logo.AssetId)
+    end
+    if type(getcustomasset) ~= "function" or type(writefile) ~= "function" or type(isfile) ~= "function" then
+        return nil
+    end
+    local Ok, Asset = pcall(function()
+        if not isfile(Logo.File) then
+            if type(makefolder) == "function" and type(isfolder) == "function" then
+                local Path = ""
+                for Folder in Logo.File:gmatch("([^/]+)/") do
+                    Path = Path .. Folder
+                    if not isfolder(Path) then
+                        makefolder(Path)
+                    end
+                    Path = Path .. "/"
+                end
+            end
+            local Png = game:HttpGet(Logo.Url)
+            if type(Png) ~= "string" or Png:sub(2, 4) ~= "PNG" then
+                error("logo download is not a PNG", 0)
+            end
+            writefile(Logo.File, Png)
+        end
+        return getcustomasset(Logo.File)
+    end)
+    -- only the forms Obsidian's GetCustomIcon accepts; anything else would draw an empty icon
+    if Ok and type(Asset) == "string" and (Asset:match("^rbxasset://[^/]+/") or Asset:match("^content://")) then
+        return Asset
+    end
+    return nil
+end
+
 local CreateWindow = Library.CreateWindow
 function Library:CreateWindow(Info)
     Info = type(Info) == "table" and Info or {}
@@ -919,7 +963,7 @@ function Library:CreateWindow(Info)
     else
         Info.Footer = Game ~= "" and Game or Footer
     end
-    Info.Icon = Info.Logo or Info.Icon or "moon"
+    Info.Icon = Info.Logo or LogoIcon() or Info.Icon or "moon"
     if type(Info.Folder) == "string" and Info.Folder ~= "" then
         SaveManager:SetFolder(Info.Folder)
     end
