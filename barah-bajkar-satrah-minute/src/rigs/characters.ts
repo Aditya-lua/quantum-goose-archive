@@ -1,0 +1,250 @@
+import type { CharSpec, Expr, ExprName } from "./types";
+
+// Visual interpretations documented in docs/CHARACTER_BIBLE.md.
+
+export const meeraAdult: CharSpec = {
+  id: "meeraAdult",
+  name: "Meera (32)",
+  H: 600,
+  headFrac: 0.148,
+  shoulder: 0.1,
+  hip: 0.095,
+  skin: "#b77f59",
+  skinShade: "#8e5c3e",
+  lip: "#8a4a3e",
+  hair: "meeraAdult",
+  hairColor: "#17110f",
+  hairShade: "#2c2320",
+  faceW: 0.94,
+  jaw: 0.25,
+  top: { kind: "kurta", color: "#2f3a63", shade: "#222a49", trim: "#55628c", length: 0.7 },
+  bottom: { kind: "trousers", color: "#2a2b30", shade: "#1c1d21" },
+  sleeve: "three-quarter",
+  shoe: "#3b2a1f",
+  acc: {
+    earrings: "#c9c6c0",
+    watch: true,
+    dupatta: { color: "#6f6455", shade: "#544a3e" },
+    underEye: 0.55,
+  },
+};
+
+/** Same person, memorial day: off-white kurta. */
+export const meeraMemorial: CharSpec = {
+  ...meeraAdult,
+  id: "meeraMemorial",
+  top: { kind: "kurta", color: "#d9d2c2", shade: "#b3aa97", trim: "#8c8372", length: 0.7 },
+};
+
+/** Same person in the olive-grey raincoat. */
+export const meeraRain: CharSpec = {
+  ...meeraAdult,
+  id: "meeraRain",
+  top: { kind: "coat", color: "#4d5246", shade: "#3a3e35", trim: "#2e3129", length: 0.72 },
+  acc: { ...meeraAdult.acc, dupatta: undefined },
+};
+
+export const meeraChild: CharSpec = {
+  id: "meeraChild",
+  name: "Meera (10)",
+  H: 430,
+  headFrac: 0.178,
+  shoulder: 0.095,
+  hip: 0.085,
+  skin: "#bd855d",
+  skinShade: "#946142",
+  lip: "#9a5445",
+  hair: "meeraChild",
+  hairColor: "#16100d",
+  hairShade: "#2a201b",
+  faceW: 0.98,
+  jaw: 0.1,
+  top: { kind: "frock", color: "#5d7aa6", shade: "#455d84", trim: "#e8e1d0", length: 0.72 },
+  bottom: { kind: "legs", color: "#bd855d", shade: "#946142" },
+  sleeve: "half",
+  shoe: "#2b2420",
+  acc: { ribbons: "#b8392f" },
+};
+
+export const dineshYoung: CharSpec = {
+  id: "dineshYoung",
+  name: "Dinesh (young)",
+  H: 640,
+  headFrac: 0.142,
+  shoulder: 0.118,
+  hip: 0.092,
+  skin: "#a8734d",
+  skinShade: "#7e5235",
+  lip: "#7a4637",
+  hair: "dineshYoung",
+  hairColor: "#141010",
+  hairShade: "#2a2422",
+  faceW: 1.0,
+  jaw: 0.55,
+  top: { kind: "shirt", color: "#9fb4c9", shade: "#7c92a8", length: 0.55 },
+  bottom: { kind: "trousers", color: "#2f3036", shade: "#222328" },
+  sleeve: "half",
+  shoe: "#2a1e17",
+  acc: { glasses: true, moustache: "#141010", watch: true },
+};
+
+export const dineshOld: CharSpec = {
+  ...dineshYoung,
+  id: "dineshOld",
+  name: "Dinesh (old)",
+  H: 625,
+  hair: "dineshOld",
+  hairColor: "#9a958e",
+  hairShade: "#77726b",
+  skin: "#a06f4c",
+  skinShade: "#775034",
+  top: { kind: "cardigan", color: "#6b6052", shade: "#544b40", trim: "#e5dccb", length: 0.57 },
+  sleeve: "long",
+  acc: { glasses: true, moustache: "#a9a39b", wrinkles: 0.9, underEye: 0.7 },
+};
+
+export const mother: CharSpec = {
+  id: "mother",
+  name: "Mother",
+  H: 590,
+  headFrac: 0.147,
+  shoulder: 0.098,
+  hip: 0.1,
+  skin: "#b47a54",
+  skinShade: "#8b5a3b",
+  lip: "#8f4a3f",
+  hair: "mother",
+  hairColor: "#130e0c",
+  hairShade: "#2a201c",
+  faceW: 0.96,
+  jaw: 0.15,
+  top: { kind: "sari", color: "#7a2f3a", shade: "#5c222b", trim: "#c99a3c", length: 1 },
+  bottom: { kind: "sari", color: "#7a2f3a", shade: "#5c222b" },
+  sleeve: "half",
+  shoe: "#3b2a1f",
+  acc: {
+    bindi: true,
+    earrings: "#d4a94a",
+    bangles: "#3f7a5a",
+    pallu: { color: "#7a2f3a", shade: "#5c222b", border: "#c99a3c" },
+  },
+};
+
+export const anshu: CharSpec = {
+  id: "anshu",
+  name: "Anshu (6)",
+  H: 330,
+  headFrac: 0.2,
+  shoulder: 0.1,
+  hip: 0.09,
+  skin: "#bc845c",
+  skinShade: "#936040",
+  lip: "#9a5445",
+  hair: "anshu",
+  hairColor: "#17110e",
+  hairShade: "#2c221d",
+  faceW: 1.04,
+  jaw: 0.0,
+  top: { kind: "shirt", color: "#c79a3a", shade: "#a07a28", length: 0.56 },
+  bottom: { kind: "shorts", color: "#6b4f3a", shade: "#523c2c" },
+  sleeve: "half",
+  shoe: "#2b2420",
+  acc: { whistle: true },
+};
+
+export const kabir: CharSpec = {
+  id: "kabir",
+  name: "Kabir",
+  H: 650,
+  headFrac: 0.14,
+  shoulder: 0.128,
+  hip: 0.1,
+  skin: "#9c6a47",
+  skinShade: "#734b31",
+  lip: "#6f4033",
+  hair: "kabir",
+  hairColor: "#161110",
+  hairShade: "#2c2522",
+  faceW: 1.02,
+  jaw: 0.7,
+  top: { kind: "shirt", color: "#5e6b5c", shade: "#475246", length: 0.55 },
+  bottom: { kind: "trousers", color: "#34363d", shade: "#25272c" },
+  sleeve: "three-quarter",
+  shoe: "#2a1e17",
+  acc: { beard: "#1a1412", apron: { color: "#8a7558", shade: "#6c5a42" }, pencil: true },
+};
+
+export const kabirStreet: CharSpec = { ...kabir, id: "kabirStreet", acc: { ...kabir.acc, apron: undefined, pencil: false } };
+
+export const vikram: CharSpec = {
+  id: "vikram",
+  name: "Vikram Vashishth",
+  H: 635,
+  headFrac: 0.142,
+  shoulder: 0.122,
+  hip: 0.108,
+  skin: "#c08d68",
+  skinShade: "#946748",
+  lip: "#8a5446",
+  hair: "vikram",
+  hairColor: "#c8c4bd",
+  hairShade: "#9b968e",
+  faceW: 1.04,
+  jaw: 0.6,
+  top: { kind: "kurta", color: "#ece7dc", shade: "#c9c1b2", length: 0.72 },
+  bottom: { kind: "trousers", color: "#e4ded2", shade: "#c2baa9" },
+  sleeve: "long",
+  shoe: "#1e1a18",
+  acc: { jacket: { color: "#2a2d36", shade: "#1d1f26" }, wrinkles: 0.45 },
+};
+
+/** Flood night: faceless figure in a raincoat. Rendered as a silhouette only. */
+export const vikramNight: CharSpec = {
+  ...vikram,
+  id: "vikramNight",
+  hair: "shortMale",
+  hairColor: "#1a1a1a",
+  top: { kind: "coat", color: "#1b1e26", shade: "#14161c", length: 0.74 },
+  acc: {},
+};
+
+export const harish: CharSpec = {
+  id: "harish",
+  name: "Harish Kaka",
+  H: 575,
+  headFrac: 0.15,
+  shoulder: 0.1,
+  hip: 0.085,
+  skin: "#8f603f",
+  skinShade: "#6a442b",
+  lip: "#6a3d30",
+  hair: "harish",
+  hairColor: "#d9d4cc",
+  hairShade: "#a9a39a",
+  faceW: 0.92,
+  jaw: 0.35,
+  top: { kind: "coat", color: "#7a6f4a", shade: "#5e5538", trim: "#a39565", length: 0.7 },
+  bottom: { kind: "trousers", color: "#4a4436", shade: "#38332a" },
+  sleeve: "long",
+  shoe: "#2a1e17",
+  acc: { cap: "#4f3a2e", stubble: "#cfc9c0", wrinkles: 1, underEye: 0.8 },
+};
+
+export const EXPR: Record<ExprName, Expr> = {
+  neutral: { browInner: 0, browY: 0, lid: 0.12, lower: 0, mouth: 0, open: 0 },
+  listen: { browInner: 0.25, browY: 0.1, lid: 0.18, lower: 0.05, mouth: -0.1, open: 0 },
+  tense: { browInner: -0.35, browY: -0.2, lid: 0.15, lower: 0.15, mouth: -0.25, open: 0, press: 0.6 },
+  grief: { browInner: 0.85, browY: 0.05, lid: 0.4, lower: 0.1, mouth: -0.55, open: 0.05 },
+  shock: { browInner: 0.4, browY: 0.8, lid: 0, lower: 0, mouth: -0.2, open: 0.35 },
+  anger: { browInner: -0.9, browY: -0.4, lid: 0.2, lower: 0.25, mouth: -0.45, open: 0, press: 0.5 },
+  soft: { browInner: 0.3, browY: 0.1, lid: 0.25, lower: 0.15, mouth: 0.2, open: 0 },
+  sad: { browInner: 0.6, browY: 0, lid: 0.35, lower: 0.05, mouth: -0.4, open: 0 },
+  crying: { browInner: 1, browY: 0.1, lid: 0.55, lower: 0.35, mouth: -0.6, open: 0.25, tears: 1 },
+  laugh: { browInner: 0.35, browY: 0.25, lid: 0.35, lower: 0.6, mouth: 0.9, open: 0.45 },
+  tired: { browInner: 0.15, browY: -0.1, lid: 0.42, lower: 0.05, mouth: -0.15, open: 0 },
+  stern: { browInner: -0.4, browY: -0.25, lid: 0.3, lower: 0.15, mouth: -0.15, open: 0, press: 0.3 },
+  smug: { browInner: -0.1, browY: 0.15, lid: 0.38, lower: 0.2, mouth: 0.25, open: 0 },
+  fear: { browInner: 0.9, browY: 0.6, lid: 0, lower: 0.1, mouth: -0.4, open: 0.25 },
+  resolve: { browInner: -0.15, browY: -0.05, lid: 0.15, lower: 0.15, mouth: -0.05, open: 0, press: 0.35 },
+  pressed: { browInner: 0.2, browY: -0.1, lid: 0.3, lower: 0.2, mouth: -0.35, open: 0, press: 1 },
+};

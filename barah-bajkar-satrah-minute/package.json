@@ -1,0 +1,50 @@
+{
+  "name": "barah-bajkar-satrah-minute",
+  "version": "1.0.0",
+  "description": "बारह बजकर सत्रह मिनट — 2D animated film (Remotion)",
+  "repository": {},
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "private": true,
+  "dependencies": {
+    "@remotion/captions": "4.0.546",
+    "@remotion/cli": "4.0.546",
+    "@remotion/fonts": "4.0.546",
+    "@remotion/media": "4.0.546",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.546",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@fontsource/noto-sans-devanagari": "5.3.0",
+    "@fontsource/tiro-devanagari-hindi": "5.3.0",
+    "@remotion/eslint-config-flat": "4.0.546",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/web": "0.0.166",
+    "eslint": "10.15.0",
+    "prettier": "3.8.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion bundle",
+    "lint": "eslint src && tsc",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && tsx scripts/check.ts",
+    "docs": "tsx scripts/storyboard-doc.ts && tsx scripts/export-captions.ts",
+    "sheet": "remotion still CharacterSheet deliverables/character-sheet.png",
+    "pilot": "remotion render Pilot deliverables/pilot.mp4 --codec=h264 --pixel-format=yuv420p --audio-codec=aac --crf=20",
+    "test-render": "remotion render Film out/test-10s.mp4 --frames=0-239 --codec=h264 --pixel-format=yuv420p --audio-codec=aac",
+    "draft": "remotion render FilmDraft out/draft-720p.mp4 --codec=h264 --pixel-format=yuv420p --audio-codec=aac --crf=26",
+    "render:final": "bash scripts/render-final.sh",
+    "upgrade": "remotion upgrade"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}

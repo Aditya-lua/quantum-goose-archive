@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.DS_Store
+.env
+
+# renders and caches (final MP4 and ZIP are delivered as files, not committed)
+out
+*.zip
+
+# transcription toolchain, models, venv and intermediate files (regenerable)
+whisper.cpp
+work
+__pycache__
