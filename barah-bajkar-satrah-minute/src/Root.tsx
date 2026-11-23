@@ -21,7 +21,7 @@ const Scaled: React.FC<{ width: number; showCaptions: boolean; range?: [number, 
   );
 };
 
-const PILOT_END = beatById("S02-03").to;
+const PILOT_END = beatById("S03-01").to;
 
 export const RemotionRoot: React.FC = () => {
   return (

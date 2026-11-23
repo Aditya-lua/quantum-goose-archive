@@ -6,6 +6,15 @@ A 2D animated film (about 21 min, Hindi) built with Remotion, React and TypeScri
 - **Measured narration:** 1249.254 s. The film adds a 0.5 s picture head and a 3.0 s tail: 30 067 frames = **1252.79 s (20:52.8)**.
 - **Pinned toolchain:** Remotion 4.0.546 (exact versions, `package-lock.json`); Node 20.19+ / 22.13+; ffmpeg on PATH for the scripts.
 
+## The recording and the manuscript
+The narration reads the title once (0.0–1.84 s, shown as the title card) and then the story, with one difference from the manuscript: **12 manuscript paragraphs are not read in the recording**.
+- **Lines 1, 3, 7, 9, 11:** the cremation line, the first quoted confession, the tape stopping, and the note «पहले पूरी बात सुनना».
+- **Lines 27 and 31–41:** the cassette into the bag and the raincoat, Kabir pulling the chair, the label, the half-closed door, and the first dialogue in the shop.
+
+**How this was verified.** I transcribed each region on its own; the speech there is continuous («…धीमी और भारी» → «बाईस साल पहले…», and line 29 → «कबीर ने कोई जवाब नहीं दिया»).
+
+**What the film does.** It does not invent or synthesise speech. Picture-only information that the plot needs is shown wordlessly inside neighbouring narration: the tape stopping, the note under «बाईस साल पहले भी…», and the shop's half-closed shutter and the cassette on the counter at line 43. Captions contain only what is spoken. Full list: `docs/TIMING.md`, `src/timing/alignment.json` (`omittedParagraphs`).
+
 ## Setup
 ```bash
 npm ci
@@ -35,7 +44,7 @@ It also writes the drift report to `docs/TIMING.md`.
 | What | Command |
 |---|---|
 | 10-second test (frames 0–239) | `npm run test-render` |
-| Pilot (title → end of S02, 1080p) | `npm run pilot` |
+| Pilot (title → end of S03-01, about 55 s, 1080p) | `npm run pilot` |
 | Full draft, 720p, same timing | `npm run draft` |
 | Final 1080p, chunked and resumable | `npm run render:final` |
 

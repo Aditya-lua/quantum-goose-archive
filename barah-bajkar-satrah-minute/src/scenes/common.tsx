@@ -41,7 +41,7 @@ export const Actor: React.FC<{
 /** Standard placements reused across scenes (fixed geography). */
 export const PLACES = {
   meeraAtDesk: { x: STUDY.chairX, y: STUDY.floorY, s: 0.95 } as Place,
-  recorderAtDesk: { x: 1040, y: STUDY.deskTop, w: 135 },
+  recorderAtDesk: { x: 968, y: STUDY.deskTop, w: 135 },
 };
 
 /** Play-key world position on the study recorder (see Recorder key layout). */

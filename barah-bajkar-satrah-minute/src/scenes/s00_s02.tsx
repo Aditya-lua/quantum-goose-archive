@@ -33,7 +33,7 @@ const MeeraDesk: React.FC<{ t: number; hover: number; freeze?: number; expr?: Po
   const target = { x: rest.x + (over.x - rest.x) * hover, y: rest.y + (over.y - rest.y) * hover };
   const pose: Pose = {
     ...base,
-    near: reachW(M, base, "near", target, desk, hover > 0.5 ? "point" : "relaxed", hover * 35),
+    near: reachW(M, base, "near", target, desk, hover > 0.92 ? "point" : "relaxed", hover * 35),
     far: reachW(M, base, "far", { x: 930, y: STUDY.deskTop - 4 }, desk, "relaxed", 60),
   };
   return (
